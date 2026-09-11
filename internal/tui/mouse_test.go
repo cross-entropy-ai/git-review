@@ -168,3 +168,22 @@ func TestMouseResizingEmptyResultsAndHelp(t *testing.T) {
 		t.Fatal("invisible controls responded in an undersized terminal")
 	}
 }
+
+func TestMouseWheelNavigatesDiffThatFits(t *testing.T) {
+	m := sampleModel(false)
+	press(m, "C")
+	x := m.layout().diffX + 10
+	m.Update(tea.MouseMsg{X: x, Y: contentTop + 1, Button: tea.MouseButtonWheelDown})
+	if m.selected != 1 || m.offset != 0 {
+		t.Fatal("wheel did not select the next file in a fully visible diff")
+	}
+	press(m, " ")
+	if m.collapsed["docs/中文.md"] {
+		t.Fatal("wheel selection could not be unfolded")
+	}
+	press(m, "C")
+	m.Update(tea.MouseMsg{X: x, Y: contentTop + 1, Button: tea.MouseButtonWheelUp})
+	if m.selected != 0 || m.offset != 0 {
+		t.Fatal("wheel did not select the previous file in a fully visible diff")
+	}
+}

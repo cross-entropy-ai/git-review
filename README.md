@@ -22,7 +22,7 @@ The selected file is outlined in blue in the diff pane, with a bold blue file na
 │                                  │ │   7    8   │                                                          │
 ╰──────────────────────────────────╯ ╰───────────────────────────────────────────────────────────────────────╯
   internal/server/server.go                                                                               39%
-  ? Help   q Quit   Tab Focus   Space Fold   v Viewed   / Filter
+  Tab Focus   Space Fold   v Viewed   / Filter   t Tree                                      ? Help   q Quit
 ```
 
 ## Build and run
@@ -61,7 +61,7 @@ The output is a single binary. It needs no Go runtime, Node, browser, or backgro
 | --- | --- |
 | `Tab` | Switch focus between the file list and diff |
 | `t` | Toggle the flat file list and directory tree |
-| `j` / `k`, `↑` / `↓` | Scroll the diff, or select files when the file list has focus |
+| `j` / `k`, `↑` / `↓` | Scroll the diff and follow file selection; at a scroll boundary, select the previous / next file. With sidebar focus, navigate its entries |
 | `n` / `p` | Next / previous file |
 | `Space` / `Enter` | Fold / unfold the selected file without changing viewed status |
 | `v` | Toggle viewed; marking viewed folds the file and advances to the next unviewed file |
@@ -88,7 +88,7 @@ Mouse support is enabled by default in terminals that support mouse reporting.
 | Click a file header in the diff | Fold / unfold that file |
 | Click a file header's Viewed box | Toggle viewed without jumping to another file |
 | Scroll over the sidebar | Browse the file list independently of the diff |
-| Scroll over the diff | Scroll the diff vertically |
+| Scroll over the diff | Scroll vertically; at a scroll boundary, select the previous / next file |
 | Shift + wheel or horizontal wheel | Scroll code horizontally |
 | Click or drag a scrollbar | Jump through that pane |
 | Click the filter field or toolbar | Filter, collapse, expand, refresh, or open help |

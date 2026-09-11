@@ -59,21 +59,26 @@ func (m *Model) controls() []control {
 		searchWidth = m.width - 26
 	}
 	controls = append(controls, control{x: 1, y: 2, width: searchWidth, key: "/"})
-	buttons := []control{{label: " ? Help ", key: "?"}, {label: " q Quit ", key: "q"}, {label: " Tab Focus ", key: "tab"}, {label: " Space Fold ", key: " "}, {label: " v Viewed ", key: "v"}, {label: " / Filter ", key: "/"}}
+	buttons := []control{{label: " Tab Focus ", key: "tab"}, {label: " Space Fold ", key: " "}, {label: " v Viewed ", key: "v"}, {label: " / Filter ", key: "/"}}
 	treeLabel := " t Tree "
 	if m.treeMode {
 		treeLabel = " t List "
 	}
 	buttons = append(buttons, control{label: treeLabel, key: "t"})
+	footerLimit := m.width - 1
 	if m.help {
 		buttons = []control{{label: " Esc Close help ", key: "esc"}}
 	} else if m.filtering {
 		buttons = []control{{label: " Enter Apply ", key: "enter"}, {label: " Esc Clear ", key: "esc"}}
+	} else {
+		help, quit := control{label: " ? Help ", key: "?"}, control{label: " q Quit ", key: "q"}
+		right(m.height-1, help, quit)
+		footerLimit -= ansi.StringWidth(help.label) + ansi.StringWidth(quit.label) + 2
 	}
 	x := 1
 	for _, button := range buttons {
 		button.width = ansi.StringWidth(button.label)
-		if x+button.width > m.width-1 {
+		if x+button.width > footerLimit {
 			break
 		}
 		button.x, button.y = x, m.height-1

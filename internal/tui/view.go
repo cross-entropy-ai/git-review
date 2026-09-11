@@ -371,7 +371,7 @@ func (m *Model) helpLines() []string {
 		"", "  KEYBOARD",
 		"  Tab              Switch focus between files and diff",
 		"  t                Toggle flat file list / directory tree",
-		"  j / k · ↑ / ↓    Scroll diff, or select a file in Files",
+		"  j / k · ↑ / ↓    Scroll diff; at an edge, select adjacent file",
 		"  n / p            Next / previous file",
 		"  Space / Enter    Fold / unfold the selected file",
 		"  v                Toggle viewed; fold and advance when viewed",

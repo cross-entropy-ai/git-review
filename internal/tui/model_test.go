@@ -200,14 +200,63 @@ func TestRefreshAndHelp(t *testing.T) {
 	}
 }
 
-func TestScrollingAtBoundaryKeepsFileSelection(t *testing.T) {
+func TestArrowNavigationWhenDiffFits(t *testing.T) {
+	for _, folded := range []bool{false, true} {
+		m := sampleModel(false)
+		m.Update(tea.WindowSizeMsg{Width: 120, Height: 150})
+		if folded {
+			press(m, "C")
+		}
+		for _, want := range []int{1, 2, 2} {
+			press(m, "down")
+			if m.selected != want || m.offset != 0 {
+				t.Fatalf("folded=%v: down selected=%d offset=%d, want %d/0", folded, m.selected, m.offset, want)
+			}
+		}
+		for _, want := range []int{1, 0, 0} {
+			press(m, "up")
+			if m.selected != want || m.offset != 0 {
+				t.Fatalf("folded=%v: up selected=%d offset=%d, want %d/0", folded, m.selected, m.offset, want)
+			}
+		}
+		press(m, "j")
+		press(m, " ")
+		if m.selected != 1 || m.collapsed["docs/中文.md"] == folded {
+			t.Fatal("fold acted on a different file after arrow navigation")
+		}
+	}
+}
+
+func TestScrollBoundaryReachesFilesBelowViewportTop(t *testing.T) {
+	m := sampleModel(false)
+	m.collapsed["docs/中文.md"], m.collapsed["last.txt"] = true, true
+	m.rebuild()
+	for i := 0; i < len(m.rows)+3; i++ {
+		press(m, "down")
+	}
+	if m.selected != 2 || m.offset != len(m.rows)-m.bodyHeight() {
+		t.Fatal("scrolling to the bottom did not reach the last folded file")
+	}
+	press(m, " ")
+	if m.collapsed["last.txt"] {
+		t.Fatal("last file could not be unfolded")
+	}
+}
+
+func TestScrollDirectionAfterSelectingVisibleFile(t *testing.T) {
 	m := sampleModel(false)
 	press(m, "C")
-	press(m, "n")
-	selected := m.selected
-	press(m, "j")
-	if m.selected != selected {
-		t.Fatal("a scroll that cannot move reset the selected file")
+	m.collapsed["last.txt"] = false
+	m.rebuild()
+	// All headers are visible, but the last file extends below the viewport.
+	m.selected = 2
+	press(m, "up")
+	if m.selected != 1 || m.offset != 0 {
+		t.Fatal("up at the top moved the viewport downward")
+	}
+	press(m, "down")
+	if m.selected != 1 || m.offset != 1 {
+		t.Fatal("downward scrolling moved selection to an earlier file")
 	}
 }
 

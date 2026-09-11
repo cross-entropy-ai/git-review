@@ -317,11 +317,51 @@ func (m *Model) selectAtOffset() {
 }
 
 func (m *Model) scroll(delta int) {
+	if delta == 0 || len(m.rows) == 0 {
+		return
+	}
 	previousOffset := m.offset
 	m.offset += delta
 	m.clampOffset()
 	if m.offset != previousOffset {
-		m.selectAtOffset()
+		// A file selected by clicking can be below the viewport's first row.
+		// Scrolling down must not move that selection back to an earlier file.
+		candidate := m.rows[m.offset].file
+		if (delta > 0 && candidate > m.selected) || (delta < 0 && candidate < m.selected) {
+			m.selected = candidate
+			m.ensureSelectedVisible()
+		}
+		return
+	}
+	// The viewport may already be at an edge, or the whole diff may fit.
+	// Continue navigating files even when there is no content left to scroll.
+	direction := 1
+	if delta < 0 {
+		direction = -1
+	}
+	for i, file := range m.visible {
+		if file == m.selected {
+			next := m.visible[min(max(i+direction, 0), len(m.visible)-1)]
+			if next == m.selected {
+				return
+			}
+			m.selected, m.xOffset = next, 0
+			m.ensureSelectedVisible()
+			break
+		}
+	}
+	for i, row := range m.rows {
+		if row.kind == 'f' && row.file == m.selected {
+			// Keep an already visible header in place instead of jumping it
+			// to the top, which could scroll opposite to the requested direction.
+			if i < m.offset {
+				m.offset = i
+			} else if i >= m.offset+m.bodyHeight() {
+				m.offset = i - m.bodyHeight() + 1
+			}
+			m.clampOffset()
+			break
+		}
 	}
 }
 
