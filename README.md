@@ -22,6 +22,18 @@ One binary. Runs locally. No GitHub account or browser needed.
 
 ## Get started
 
+### Homebrew
+
+```sh
+brew install cross-entropy-ai/tap/git-review
+```
+
+Upgrade with `brew update && brew upgrade git-review`. The formula installs the binary for your macOS or Linux machine, on amd64 or arm64.
+
+Before the first release is added to the tap, use `brew install --HEAD cross-entropy-ai/tap/git-review` to build from source. Homebrew installs Go for this initial source build.
+
+### Install directly
+
 Install the latest release on macOS or Linux with one command:
 
 ```sh

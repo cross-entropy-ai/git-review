@@ -54,5 +54,5 @@ jobs:
           else
             gh release create "$TAG" --verify-tag --draft --title "$TAG" --generate-notes
           fi
-          gh release upload "$TAG" dist/"$TAG"/*.tar.gz dist/"$TAG"/checksums.txt dist/"$TAG"/install.sh --clobber
+          gh release upload "$TAG" dist/"$TAG"/*.tar.gz dist/"$TAG"/checksums.txt dist/"$TAG"/install.sh dist/"$TAG"/git-review.rb --clobber
           gh release edit "$TAG" --draft=false
