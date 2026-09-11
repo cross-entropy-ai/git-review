@@ -108,6 +108,7 @@ git review --stat             # Print a quick change summary
 | `n` / `p` | Jump to the next / previous file |
 | `Space` | Fold or unfold the selected file |
 | `t` | Toggle Tree/List |
+| `s` | Toggle inline / split diff (old on the left, new on the right) |
 | `v` | Mark viewed, fold, and move on |
 | `/` | Find files by path |
 | `Tab` | Switch between the sidebar and diff |

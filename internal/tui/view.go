@@ -58,6 +58,9 @@ func (m *Model) View() string {
 			sideTitle = fmt.Sprintf(" TREE · %d ", len(m.visible))
 		}
 		diffTitle := " DIFF "
+		if m.splitMode {
+			diffTitle = " DIFF · SPLIT (old │ new) "
+		}
 		if len(m.visible) > 0 {
 			diffTitle += "· " + safeText(c.Files[m.selected].Path) + " "
 		}
@@ -152,7 +155,7 @@ func (m *Model) controlRow(y int, prefix string) string {
 				fg = m.palette.accent
 			}
 		}
-		if button.key == "?" || button.key == "v" {
+		if button.key == "?" {
 			fg = m.palette.accent
 		}
 		out.WriteString(m.surface(fg, label, button.width))
@@ -306,6 +309,12 @@ func (m *Model) renderRowContent(row row, width int) string {
 		return m.surface(m.palette.muted, " "+safeText(row.text), width)
 	case 'm':
 		return m.surface(m.palette.muted, "   "+safeText(row.text), width)
+	case 'd':
+		leftWidth := max(0, (width-1)/2)
+		rightWidth := max(0, width-1-leftWidth)
+		return m.renderSplitCell(row, row.line, false, leftWidth) +
+			m.surface(m.palette.border, "│", 1) +
+			m.renderSplitCell(row, row.rightLine, true, rightWidth)
 	case 'l':
 		line := file.Hunks[row.hunk].Lines[row.line]
 		key := highlightKey{file: row.file, hunk: row.hunk}
@@ -322,16 +331,19 @@ func (m *Model) renderRowContent(row row, width int) string {
 			newNumber = fmt.Sprint(line.New)
 		}
 		signColor := m.palette.muted
+		bg := ""
 		if line.Kind == '+' {
 			signColor = m.palette.green
+			bg = m.palette.addedBackground
 		}
 		if line.Kind == '-' {
 			signColor = m.palette.red
+			bg = m.palette.deletedBackground
 		}
 		gutter := m.ink(signColor, fmt.Sprintf("%4s %4s %c │ ", oldNumber, newNumber, line.Kind))
 		available := max(0, width-ansi.StringWidth(gutter))
 		code = ansi.Cut(code, m.xOffset, m.xOffset+available)
-		return m.surface(m.palette.foreground, gutter+fit(code, available), width)
+		return m.surfaceWithBackground(m.palette.foreground, bg, gutter+fit(code, available), width)
 	}
 	return m.surface(m.palette.foreground, "", width)
 }
@@ -374,6 +386,7 @@ func (m *Model) helpLines() []string {
 		"", "  KEYBOARD",
 		"  Tab              Switch focus between files and diff",
 		"  t                Toggle flat file list / directory tree",
+		"  s                Toggle inline / split diff (old left, new right)",
 		"  j / k · ↑ / ↓    Scroll diff; at an edge, select adjacent file",
 		"  n / p            Next / previous file",
 		"  Space / Enter    Fold / unfold the selected file",

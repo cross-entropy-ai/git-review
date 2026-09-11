@@ -88,7 +88,7 @@ func highlightSource(lexer chroma.Lexer, source, styleName string) []string {
 	var out strings.Builder
 	for token := iterator(); token != chroma.EOF; token = iterator() {
 		entry := style.Get(token.Type)
-		// Error styles may rely on a filled background, which code rows omit.
+		// Error styles may rely on a token background; rows use diff backgrounds.
 		if token.Type == chroma.Error {
 			entry = style.Get(chroma.Keyword)
 		}

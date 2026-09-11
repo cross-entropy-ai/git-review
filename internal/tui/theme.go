@@ -17,6 +17,8 @@ const (
 type palette struct {
 	headerBackground    string
 	selectionBackground string
+	addedBackground     string
+	deletedBackground   string
 	border              string
 	foreground          string
 	muted               string
@@ -31,6 +33,8 @@ func paletteFor(theme Theme) palette {
 		return palette{
 			headerBackground:    "e4e8ed",
 			selectionBackground: "d8e9fc",
+			addedBackground:     "dafbe1",
+			deletedBackground:   "ffebe9",
 			border:              "a0a8b2",
 			foreground:          "24292f",
 			muted:               "57606a",
@@ -43,6 +47,8 @@ func paletteFor(theme Theme) palette {
 	return palette{
 		headerBackground:    "2b3038",
 		selectionBackground: "233e5a",
+		addedBackground:     "173b27",
+		deletedBackground:   "4b2026",
 		border:              "4b5563",
 		foreground:          "e1e7ef",
 		muted:               "a0aab8",

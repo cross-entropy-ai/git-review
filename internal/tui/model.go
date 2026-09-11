@@ -11,11 +11,12 @@ import (
 )
 
 type row struct {
-	kind byte
-	file int
-	hunk int
-	line int
-	text string
+	kind      byte
+	file      int
+	hunk      int
+	line      int
+	rightLine int // Split row's new-side index; -1 denotes an empty cell.
+	text      string
 }
 
 type loadedMsg struct {
@@ -44,6 +45,7 @@ type Model struct {
 	xOffset    int
 	sideOffset int
 	treeMode   bool
+	splitMode  bool
 	treeRows   []treeEntry
 	treeCursor int
 	treeClosed map[string]bool
@@ -179,6 +181,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.layout().sideWidth == 0 {
 				m.message = "Sidebar view changed; resize to at least 90 columns to show it"
 			}
+		case "s":
+			m.toggleSplit()
 		case "/":
 			m.filtering = true
 		case "esc":
@@ -292,6 +296,10 @@ func (m *Model) rebuild() {
 			}
 			for hi, hunk := range file.Hunks {
 				m.rows = append(m.rows, row{kind: 'h', file: i, hunk: hi, text: hunk.Header})
+				if m.splitMode {
+					m.rows = append(m.rows, splitRows(i, hi, hunk.Lines)...)
+					continue
+				}
 				for li := range hunk.Lines {
 					m.rows = append(m.rows, row{kind: 'l', file: i, hunk: hi, line: li})
 				}

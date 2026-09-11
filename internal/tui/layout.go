@@ -60,10 +60,15 @@ func (m *Model) controls() []control {
 		searchWidth = m.width - 26
 	}
 	controls = append(controls, control{x: 1, y: 2, width: searchWidth, key: "/"})
+	modeLabel := " s Split "
+	if m.splitMode {
+		modeLabel = " s Inline "
+	}
 	buttons := []control{
 		{label: " Tab Focus ", key: "tab"},
 		{label: " Space Fold ", key: " "},
 		{label: " t Tree/List ", key: "t"},
+		{label: modeLabel, key: "s"},
 		{label: " v Viewed ", key: "v"},
 		{label: " / Filter ", key: "/"},
 	}
