@@ -22,7 +22,7 @@ The selected file is outlined in blue in the diff pane, with a bold blue file na
 │                                  │ │   7    8   │                                                          │
 ╰──────────────────────────────────╯ ╰───────────────────────────────────────────────────────────────────────╯
   internal/server/server.go                                                                               39%
-  Tab Focus   Space Fold   v Viewed   / Filter   t Tree                                      ? Help   q Quit
+  Tab Focus   Space Fold   t Tree/List   v Viewed   / Filter                                 ? Help   q Quit
 ```
 
 ## Build and run
@@ -101,7 +101,7 @@ Use `--no-mouse` to disable mouse reporting and use native terminal text selecti
 
 The default flat list preserves Git's diff output order, normally ordered by full path; Git ordering configuration such as `diff.orderFile` can affect it. The sidebar shows basenames with directories on the next line, so this is not a basename sort.
 
-Press `t` (or click `t Tree` / `t List` in the footer) to switch views. The tree groups changed files by directory, sorting directories before files and names in case-sensitive lexical order at each level. Directory counts include all matching files below them. Renames appear under their destination; deleted files remain available even if they no longer exist on disk.
+Press `t` (or click `t Tree/List` in the footer) to switch views. The tree groups changed files by directory, sorting directories before files and names in case-sensitive lexical order at each level. Directory counts include all matching files below them. Renames appear under their destination; deleted files remain available even if they no longer exist on disk.
 
 With tree focus (`Tab`), use `j` / `k` or `↑` / `↓` to navigate entries. `←` / `h` closes a directory or moves to its parent; `→` / `l` opens a directory or enters its first child, and expands a folded file. `Space` / `Enter` toggles the focused directory or file. Clicking a directory toggles it; file arrows and viewed checkboxes work at every indentation level. Mark files viewed individually with `v` or their checkbox.
 

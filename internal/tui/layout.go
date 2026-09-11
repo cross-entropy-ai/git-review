@@ -59,12 +59,13 @@ func (m *Model) controls() []control {
 		searchWidth = m.width - 26
 	}
 	controls = append(controls, control{x: 1, y: 2, width: searchWidth, key: "/"})
-	buttons := []control{{label: " Tab Focus ", key: "tab"}, {label: " Space Fold ", key: " "}, {label: " v Viewed ", key: "v"}, {label: " / Filter ", key: "/"}}
-	treeLabel := " t Tree "
-	if m.treeMode {
-		treeLabel = " t List "
+	buttons := []control{
+		{label: " Tab Focus ", key: "tab"},
+		{label: " Space Fold ", key: " "},
+		{label: " t Tree/List ", key: "t"},
+		{label: " v Viewed ", key: "v"},
+		{label: " / Filter ", key: "/"},
 	}
-	buttons = append(buttons, control{label: treeLabel, key: "t"})
 	footerLimit := m.width - 1
 	if m.help {
 		buttons = []control{{label: " Esc Close help ", key: "esc"}}
