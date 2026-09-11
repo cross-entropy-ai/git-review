@@ -6,16 +6,52 @@ import (
 	"strings"
 )
 
+// Theme selects a palette after terminal background detection in the CLI.
+type Theme string
+
 const (
-	headerBackground    = "161b22"
-	selectionBackground = "1c2d41"
-	border              = "30363d"
-	foreground          = "c9d1d9"
-	muted               = "8b949e"
-	accent              = "79c0ff"
-	green               = "7ee787"
-	red                 = "ffa198"
+	DarkTheme  Theme = "dark"
+	LightTheme Theme = "light"
 )
+
+type palette struct {
+	headerBackground    string
+	selectionBackground string
+	border              string
+	foreground          string
+	muted               string
+	accent              string
+	green               string
+	red                 string
+	syntaxStyle         string
+}
+
+func paletteFor(theme Theme) palette {
+	if theme == LightTheme {
+		return palette{
+			headerBackground:    "e4e8ed",
+			selectionBackground: "d8e9fc",
+			border:              "a0a8b2",
+			foreground:          "24292f",
+			muted:               "57606a",
+			accent:              "0959b0",
+			green:               "116329",
+			red:                 "b42332",
+			syntaxStyle:         "github",
+		}
+	}
+	return palette{
+		headerBackground:    "2b3038",
+		selectionBackground: "233e5a",
+		border:              "4b5563",
+		foreground:          "e1e7ef",
+		muted:               "a0aab8",
+		accent:              "8bc4ff",
+		green:               "85d996",
+		red:                 "ff9b98",
+		syntaxStyle:         "github-dark",
+	}
+}
 
 func colorCode(layer int, hex string) string {
 	rgb, _ := strconv.ParseUint(hex, 16, 24)

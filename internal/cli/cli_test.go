@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/imwithye/git-review/internal/tui"
 )
 
 func TestArguments(t *testing.T) {
@@ -19,6 +21,7 @@ func TestArguments(t *testing.T) {
 		{[]string{"--version"}, 0, "git-review test"},
 		{[]string{"--unknown"}, 2, "flag provided but not defined"},
 		{[]string{"--context", "-1"}, 2, "between 0 and 100"},
+		{[]string{"--theme", "sepia"}, 2, "--theme must be auto, light, or dark"},
 		{[]string{"--base", "main", "master"}, 2, "not both"},
 		{[]string{"one", "two", "three"}, 2, "at most two refs"},
 		{nil, 1, "interactive terminal"},
@@ -27,6 +30,31 @@ func TestArguments(t *testing.T) {
 		code := Run(test.args, &out, &errOut, "test")
 		if code != test.code || !strings.Contains(out.String()+errOut.String(), test.text) {
 			t.Errorf("%v: code %d, out %q, error %q", test.args, code, out.String(), errOut.String())
+		}
+	}
+}
+
+func TestResolveTheme(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		color bool
+		dark  bool
+		want  tui.Theme
+		query bool
+	}{
+		{"auto", true, true, tui.DarkTheme, true},
+		{"auto", true, false, tui.LightTheme, true},
+		{"dark", true, false, tui.DarkTheme, false},
+		{"light", true, true, tui.LightTheme, false},
+		{"auto", false, false, tui.DarkTheme, false},
+	} {
+		queried := false
+		got := resolveTheme(test.name, test.color, func() bool {
+			queried = true
+			return test.dark
+		})
+		if got != test.want || queried != test.query {
+			t.Errorf("%+v: got theme %q, queried %v", test, got, queried)
 		}
 	}
 }

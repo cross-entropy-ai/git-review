@@ -32,6 +32,7 @@ type Model struct {
 	comparison *gitdiff.Comparison
 	options    gitdiff.Options
 	color      bool
+	palette    palette
 	persist    bool
 	viewed     map[string]bool
 	collapsed  map[string]bool
@@ -54,8 +55,8 @@ type Model struct {
 	message    string
 }
 
-func New(c *gitdiff.Comparison, opts gitdiff.Options, color, persist bool) *Model {
-	m := &Model{comparison: c, options: opts, color: color, persist: persist, width: 100, height: 30}
+func New(c *gitdiff.Comparison, opts gitdiff.Options, color, persist bool, theme Theme) *Model {
+	m := &Model{comparison: c, options: opts, color: color, persist: persist, palette: paletteFor(theme), width: 100, height: 30}
 	m.install(c)
 	return m
 }

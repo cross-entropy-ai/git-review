@@ -29,7 +29,7 @@ func safeText(s string) string {
 
 // Highlight each side independently so deleted text cannot corrupt the added
 // side's lexer state. Context is limited to the lines included in each hunk.
-func highlightFile(file gitdiff.File, color bool) [][]string {
+func highlightFile(file gitdiff.File, color bool, styleName string) [][]string {
 	result := make([][]string, len(file.Hunks))
 	lexer := lexers.Match(file.Path)
 	if lexer == nil && file.OldPath != "" {
@@ -55,8 +55,8 @@ func highlightFile(file gitdiff.File, color bool) [][]string {
 		if !color || oldSource.Len()+newSource.Len() > 256<<10 {
 			continue
 		}
-		oldLines := highlightSource(lexer, oldSource.String())
-		newLines := highlightSource(lexer, newSource.String())
+		oldLines := highlightSource(lexer, oldSource.String(), styleName)
+		newLines := highlightSource(lexer, newSource.String(), styleName)
 		oldIndex, newIndex := 0, 0
 		for li, line := range hunk.Lines {
 			switch line.Kind {
@@ -79,15 +79,19 @@ func highlightFile(file gitdiff.File, color bool) [][]string {
 	return result
 }
 
-func highlightSource(lexer chroma.Lexer, source string) []string {
+func highlightSource(lexer chroma.Lexer, source, styleName string) []string {
 	iterator, err := lexer.Tokenise(nil, source)
 	if err != nil {
 		return strings.Split(source, "\n")
 	}
-	style := styles.Get("github-dark")
+	style := styles.Get(styleName)
 	var out strings.Builder
 	for token := iterator(); token != chroma.EOF; token = iterator() {
 		entry := style.Get(token.Type)
+		// Error styles may rely on a filled background, which code rows omit.
+		if token.Type == chroma.Error {
+			entry = style.Get(chroma.Keyword)
+		}
 		parts := strings.Split(token.Value, "\n")
 		for i, part := range parts {
 			if i > 0 {

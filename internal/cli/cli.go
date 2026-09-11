@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/term"
 	"github.com/imwithye/git-review/internal/gitdiff"
 	"github.com/imwithye/git-review/internal/tui"
+	"github.com/muesli/termenv"
 )
 
 const usage = `Usage: git review [options] [base [head]]
@@ -26,6 +27,7 @@ Options:
   --context N      Context lines per hunk, 0–100 (default 3)
   -C DIR           Run in this repository (default current directory)
   --stat           Print file and total statistics without opening the TUI
+  --theme MODE     Color theme: auto, light, or dark (default auto)
   --no-color       Disable color and syntax highlighting (also NO_COLOR)
   --no-state       Keep viewed progress in memory only
   --no-mouse       Disable mouse reporting for native terminal text selection
@@ -42,11 +44,13 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	flags.SetOutput(stderr)
 	var opts gitdiff.Options
 	var stat, noColor, noState, noMouse, showVersion bool
+	var theme string
 	flags.StringVar(&opts.Base, "base", "", "base ref")
 	flags.StringVar(&opts.Head, "head", "HEAD", "head ref")
 	flags.StringVar(&opts.Dir, "C", ".", "repository directory")
 	flags.IntVar(&opts.Context, "context", 3, "context lines")
 	flags.BoolVar(&stat, "stat", false, "print statistics")
+	flags.StringVar(&theme, "theme", "auto", "color theme: auto, light, or dark")
 	flags.BoolVar(&noColor, "no-color", false, "disable colors")
 	flags.BoolVar(&noState, "no-state", false, "disable progress persistence")
 	flags.BoolVar(&noMouse, "no-mouse", false, "disable mouse reporting")
@@ -89,6 +93,10 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		fmt.Fprintln(stderr, "git-review: --context must be between 0 and 100")
 		return 2
 	}
+	if theme != "auto" && theme != "light" && theme != "dark" {
+		fmt.Fprintln(stderr, "git-review: --theme must be auto, light, or dark")
+		return 2
+	}
 	if !stat && (!term.IsTerminal(os.Stdin.Fd()) || !isTerminal(stdout)) {
 		fmt.Fprintln(stderr, "git-review: the TUI needs an interactive terminal; use --stat for redirected output")
 		return 1
@@ -103,7 +111,13 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		return 0
 	}
 	_, envNoColor := os.LookupEnv("NO_COLOR")
-	model := tui.New(c, opts, !noColor && !envNoColor && os.Getenv("TERM") != "dumb", !noState)
+	color := !noColor && !envNoColor && os.Getenv("TERM") != "dumb"
+	// Query before Bubble Tea starts reading terminal input. Explicit themes and
+	// monochrome output do not need a terminal query.
+	resolvedTheme := resolveTheme(theme, color, func() bool {
+		return termenv.NewOutput(stdout).HasDarkBackground()
+	})
+	model := tui.New(c, opts, color, !noState, resolvedTheme)
 	programOptions := []tea.ProgramOption{tea.WithOutput(stdout), tea.WithAltScreen()}
 	if !noMouse {
 		programOptions = append(programOptions, tea.WithMouseCellMotion())
@@ -114,6 +128,16 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		return 1
 	}
 	return 0
+}
+
+func resolveTheme(name string, color bool, hasDarkBackground func() bool) tui.Theme {
+	if name == "light" {
+		return tui.LightTheme
+	}
+	if name == "auto" && color && !hasDarkBackground() {
+		return tui.LightTheme
+	}
+	return tui.DarkTheme
 }
 
 func isTerminal(w io.Writer) bool {

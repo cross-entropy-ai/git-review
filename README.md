@@ -2,7 +2,7 @@
 
 A local, pull-request-style review TUI written in Go. Browse all committed changes on a branch with a file sidebar, total and per-file additions/deletions, line numbers, syntax highlighting, folding, and saved viewed progress. Use the keyboard or mouse in an interface with bordered panes, review progress, and clickable controls.
 
-The selected file is outlined in blue in the diff pane, with a bold blue file name. File headers have a subtle background; the selected sidebar entry and diff header use a blue background. Code and other areas preserve your terminal background, using colored line numbers and signs for additions and deletions while retaining syntax highlighting. The outline follows keyboard and mouse selection and remains visible when the file is folded or its header has scrolled out of view.
+The selected file is outlined in blue in the diff pane, with a bold blue file name. File headers have a contrasting neutral background; the selected sidebar entry and diff header use a blue background. Code and other areas preserve your terminal background, using colored line numbers and signs for additions and deletions while retaining syntax highlighting. The outline follows keyboard and mouse selection and remains visible when the file is folded or its header has scrolled out of view.
 
 ```text
   git review  /  .review-fixture                                                          r Refresh   ? Help
@@ -36,6 +36,8 @@ just build                         # Build ./git-review with CGO disabled
 ./git-review --base main --head feature/login
 ./git-review main feature/login    # Put options before positional refs
 ./git-review --context 8
+./git-review --theme light         # Override automatic terminal theme detection
+./git-review --theme dark
 ./git-review --stat                # Noninteractive output for scripts/pipes
 ```
 
@@ -91,7 +93,7 @@ Mouse support is enabled by default in terminals that support mouse reporting.
 | Click the filter field or toolbar | Filter, collapse, expand, refresh, or open help |
 | Click a footer shortcut | Run the displayed action |
 
-Use `--no-mouse` to disable mouse reporting and use native terminal text selection. Keyboard shortcuts remain available with or without mouse support. Below 90 columns the sidebar is hidden; `n` / `p` and `Tab` navigation remain available. Minimum terminal size: 45 × 12. A dark terminal with at least 100 columns is recommended.
+Use `--no-mouse` to disable mouse reporting and use native terminal text selection. Keyboard shortcuts remain available with or without mouse support. Below 90 columns the sidebar is hidden; `n` / `p` and `Tab` navigation remain available. Minimum terminal size: 45 × 12. A terminal with at least 100 columns is recommended.
 
 ## Comparison and progress semantics
 
@@ -134,4 +136,6 @@ justfile              Build and development tasks
 
 This MVP provides local review with a single-column unified diff. GitHub authentication, remote PR fetching, comments, submitting reviews, editing files, and side-by-side diffs are outside its scope.
 
-`NO_COLOR` or `--no-color` disables colors and syntax highlighting. Highlighting uses each hunk's available context, so multiline strings or comments crossing omitted lines may not retain complete lexer state. Hunks larger than 256 KiB use plain code rendering while remaining fully browsable. A Git command's output is limited to 64 MiB; larger comparisons return an explicit error and can be narrowed by choosing a smaller commit range.
+`--theme auto` (the default) detects the terminal background at startup using [termenv](https://github.com/muesli/termenv), with `COLORFGBG` as a fallback. If detection is unavailable, the theme defaults to dark. Use `--theme light` or `--theme dark` to override detection, including in terminal multiplexers. Restart after changing the terminal background. Both palettes cover headers, selection, borders, line numbers, change statistics, and syntax highlighting; code rows keep the terminal's background.
+
+`NO_COLOR` or `--no-color` disables colors and syntax highlighting, including header fills, and skips background detection. Highlighting uses each hunk's available context, so multiline strings or comments crossing omitted lines may not retain complete lexer state. Hunks larger than 256 KiB use plain code rendering while remaining fully browsable. A Git command's output is limited to 64 MiB; larger comparisons return an explicit error and can be narrowed by choosing a smaller commit range.
