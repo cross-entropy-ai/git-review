@@ -60,6 +60,7 @@ The output is a single binary. It needs no Go runtime, Node, browser, or backgro
 | Key | Action |
 | --- | --- |
 | `Tab` | Switch focus between the file list and diff |
+| `t` | Toggle the flat file list and directory tree |
 | `j` / `k`, `↑` / `↓` | Scroll the diff, or select files when the file list has focus |
 | `n` / `p` | Next / previous file |
 | `Space` / `Enter` | Fold / unfold the selected file without changing viewed status |
@@ -92,8 +93,19 @@ Mouse support is enabled by default in terminals that support mouse reporting.
 | Click or drag a scrollbar | Jump through that pane |
 | Click the filter field or toolbar | Filter, collapse, expand, refresh, or open help |
 | Click a footer shortcut | Run the displayed action |
+| Click a directory in tree mode | Expand / collapse its children |
 
 Use `--no-mouse` to disable mouse reporting and use native terminal text selection. Keyboard shortcuts remain available with or without mouse support. Below 90 columns the sidebar is hidden; `n` / `p` and `Tab` navigation remain available. Minimum terminal size: 45 × 12. A terminal with at least 100 columns is recommended.
+
+## File list and tree
+
+The default flat list preserves Git's diff output order, normally ordered by full path; Git ordering configuration such as `diff.orderFile` can affect it. The sidebar shows basenames with directories on the next line, so this is not a basename sort.
+
+Press `t` (or click `t Tree` / `t List` in the footer) to switch views. The tree groups changed files by directory, sorting directories before files and names in case-sensitive lexical order at each level. Directory counts include all matching files below them. Renames appear under their destination; deleted files remain available even if they no longer exist on disk.
+
+With tree focus (`Tab`), use `j` / `k` or `↑` / `↓` to navigate entries. `←` / `h` closes a directory or moves to its parent; `→` / `l` opens a directory or enters its first child, and expands a folded file. `Space` / `Enter` toggles the focused directory or file. Clicking a directory toggles it; file arrows and viewed checkboxes work at every indentation level. Mark files viewed individually with `v` or their checkbox.
+
+Directory folding only affects the sidebar. Switching views preserves the current diff position, file folds, filter, and viewed progress; directory expansion is kept for the current session. `n` / `p` continue navigating files in diff order and reveal their ancestors automatically. Filtering shows matching paths and their ancestors with directories expanded; clear it with `Esc` to fold directories again.
 
 ## Comparison and progress semantics
 

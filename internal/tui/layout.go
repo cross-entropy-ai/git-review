@@ -60,6 +60,11 @@ func (m *Model) controls() []control {
 	}
 	controls = append(controls, control{x: 1, y: 2, width: searchWidth, key: "/"})
 	buttons := []control{{label: " ? Help ", key: "?"}, {label: " q Quit ", key: "q"}, {label: " Tab Focus ", key: "tab"}, {label: " Space Fold ", key: " "}, {label: " v Viewed ", key: "v"}, {label: " / Filter ", key: "/"}}
+	treeLabel := " t Tree "
+	if m.treeMode {
+		treeLabel = " t List "
+	}
+	buttons = append(buttons, control{label: treeLabel, key: "t"})
 	if m.help {
 		buttons = []control{{label: " Esc Close help ", key: "esc"}}
 	} else if m.filtering {
@@ -78,24 +83,48 @@ func (m *Model) controls() []control {
 	return controls
 }
 
-func (m *Model) sidebarCapacity() int { return max(1, m.bodyHeight()/2) }
+func (m *Model) sidebarRowHeight() int {
+	if m.treeMode {
+		return 1
+	}
+	return 2
+}
+
+func (m *Model) sidebarCount() int {
+	if m.treeMode {
+		return len(m.treeRows)
+	}
+	return len(m.visible)
+}
+
+func (m *Model) sidebarCapacity() int { return max(1, m.bodyHeight()/m.sidebarRowHeight()) }
 
 func (m *Model) clampSidebar() {
-	m.sideOffset = min(max(0, m.sideOffset), max(0, len(m.visible)-m.sidebarCapacity()))
+	m.sideOffset = min(max(0, m.sideOffset), max(0, m.sidebarCount()-m.sidebarCapacity()))
 }
 
 func (m *Model) ensureSelectedVisible() {
+	if m.treeMode {
+		m.revealTreeFile()
+		m.ensureSidebarIndexVisible(m.treeCursor)
+		return
+	}
 	for i, file := range m.visible {
 		if file != m.selected {
 			continue
 		}
-		if i < m.sideOffset {
-			m.sideOffset = i
-		}
-		if i >= m.sideOffset+m.sidebarCapacity() {
-			m.sideOffset = i - m.sidebarCapacity() + 1
-		}
+		m.ensureSidebarIndexVisible(i)
 		break
+	}
+	m.clampSidebar()
+}
+
+func (m *Model) ensureSidebarIndexVisible(index int) {
+	if index < m.sideOffset {
+		m.sideOffset = index
+	}
+	if index >= m.sideOffset+m.sidebarCapacity() {
+		m.sideOffset = index - m.sidebarCapacity() + 1
 	}
 	m.clampSidebar()
 }

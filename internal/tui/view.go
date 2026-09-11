@@ -54,6 +54,9 @@ func (m *Model) View() string {
 		out = append(out, m.helpView(m.height-5)...)
 	} else {
 		sideTitle := fmt.Sprintf(" FILES · %d ", len(m.visible))
+		if m.treeMode {
+			sideTitle = fmt.Sprintf(" TREE · %d ", len(m.visible))
+		}
 		diffTitle := " DIFF "
 		if len(m.visible) > 0 {
 			diffTitle += "· " + safeText(c.Files[m.selected].Path) + " "
@@ -197,6 +200,9 @@ func (m *Model) sidebar(g geometry) []string {
 	if g.sideWidth == 0 {
 		return nil
 	}
+	if m.treeMode {
+		return m.treeSidebar(g)
+	}
 	width := g.sideWidth - 2
 	result := make([]string, 0, g.bodyHeight)
 	for item := 0; item < m.sidebarCapacity() && m.sideOffset+item < len(m.visible); item++ {
@@ -234,11 +240,16 @@ func (m *Model) sidebar(g geometry) []string {
 		detail := fit("       "+safeText(directory), max(0, width-ansi.StringWidth(stats)-1)) + stats + " "
 		result = append(result, m.surfaceWithBackground(m.palette.muted, bg, detail, width))
 	}
+	return m.frameSidebar(result, g)
+}
+
+func (m *Model) frameSidebar(result []string, g geometry) []string {
+	width := g.sideWidth - 2
 	for len(result) < g.bodyHeight {
 		result = append(result, m.surface(m.palette.foreground, "", width))
 	}
 	for y := range result {
-		rail := m.scrollRail(y, g.bodyHeight, len(m.visible)*2, m.sideOffset*2, m.fileFocus)
+		rail := m.scrollRail(y, g.bodyHeight, m.sidebarCount()*m.sidebarRowHeight(), m.sideOffset*m.sidebarRowHeight(), m.fileFocus)
 		result[y] = m.surface(m.palette.border, "│", 1) + result[y] + rail
 	}
 	return result
@@ -359,6 +370,7 @@ func (m *Model) helpLines() []string {
 		"  Toolbar          Click Filter, Collapse, Expand, Refresh, Help",
 		"", "  KEYBOARD",
 		"  Tab              Switch focus between files and diff",
+		"  t                Toggle flat file list / directory tree",
 		"  j / k · ↑ / ↓    Scroll diff, or select a file in Files",
 		"  n / p            Next / previous file",
 		"  Space / Enter    Fold / unfold the selected file",
@@ -372,6 +384,13 @@ func (m *Model) helpLines() []string {
 		"  r                Reload branches and diff",
 		"  ?                Toggle help",
 		"  q / Ctrl+C       Quit (q closes help first)", "",
+		"  TREE (with sidebar focus)",
+		"  j / k · ↑ / ↓    Navigate directories and files",
+		"  h / l · ← / →    Close / open directory; left goes to parent",
+		"  Space / Enter    Toggle directory or file folding",
+		"  Click directory  Expand / collapse its file tree",
+		"  n / p            Review files in diff order in either view",
+		"",
 		"  Viewed progress is saved locally for this exact comparison.",
 		"  Working tree and staged changes are excluded.",
 	}

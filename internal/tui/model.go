@@ -43,6 +43,10 @@ type Model struct {
 	offset     int
 	xOffset    int
 	sideOffset int
+	treeMode   bool
+	treeRows   []treeEntry
+	treeCursor int
+	treeClosed map[string]bool
 	dragging   string
 	width      int
 	height     int
@@ -56,7 +60,7 @@ type Model struct {
 }
 
 func New(c *gitdiff.Comparison, opts gitdiff.Options, color, persist bool, theme Theme) *Model {
-	m := &Model{comparison: c, options: opts, color: color, persist: persist, palette: paletteFor(theme), width: 100, height: 30}
+	m := &Model{comparison: c, options: opts, color: color, persist: persist, palette: paletteFor(theme), width: 100, height: 30, treeClosed: make(map[string]bool)}
 	m.install(c)
 	return m
 }
@@ -167,6 +171,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.helpOffset = 0
 		case "tab", "shift+tab":
 			m.fileFocus = !m.fileFocus
+		case "t":
+			m.treeMode = !m.treeMode
+			m.sideOffset, m.dragging = 0, ""
+			m.rebuildTree()
+			m.ensureSelectedVisible()
+			if m.layout().sideWidth == 0 {
+				m.message = "Sidebar view changed; resize to at least 90 columns to show it"
+			}
 		case "/":
 			m.filtering = true
 		case "esc":
@@ -174,13 +186,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rebuild()
 			m.jumpSelected()
 		case "j", "down":
-			if m.fileFocus {
+			if m.treeFocus() {
+				m.moveTree(1)
+			} else if m.fileFocus {
 				m.moveFile(1)
 			} else {
 				m.scroll(1)
 			}
 		case "k", "up":
-			if m.fileFocus {
+			if m.treeFocus() {
+				m.moveTree(-1)
+			} else if m.fileFocus {
 				m.moveFile(-1)
 			} else {
 				m.scroll(-1)
@@ -204,13 +220,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.ensureSelectedVisible()
 			}
 		case "h", "left":
-			m.xOffset = max(0, m.xOffset-8)
+			if m.treeFocus() {
+				m.treeLeft()
+			} else {
+				m.xOffset = max(0, m.xOffset-8)
+			}
 		case "l", "right":
-			m.xOffset += 8
+			if m.treeFocus() {
+				m.treeRight()
+			} else {
+				m.xOffset += 8
+			}
 		case "0":
 			m.xOffset = 0
 		case " ", "enter":
-			m.toggleFold()
+			if m.treeDirectoryFocused() {
+				m.toggleDirectory(m.treeCursor)
+			} else {
+				m.toggleFold()
+			}
 		case "C", "E":
 			for _, i := range m.visible {
 				m.collapsed[m.comparison.Files[i].Path] = key == "C"
@@ -218,7 +246,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rebuild()
 			m.jumpSelected()
 		case "v":
-			m.toggleViewed(true)
+			if m.treeDirectoryFocused() {
+				m.message = "Select a file to mark it viewed"
+			} else {
+				m.toggleViewed(true)
+			}
 		case "]":
 			m.moveHunk(1)
 		case "[":
@@ -270,6 +302,7 @@ func (m *Model) rebuild() {
 	if !found && len(m.visible) > 0 {
 		m.selected = m.visible[0]
 	}
+	m.rebuildTree()
 	m.clampOffset()
 	m.ensureSelectedVisible()
 }

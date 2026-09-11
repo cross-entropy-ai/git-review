@@ -80,9 +80,25 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	if g.sideWidth > 0 && msg.X > 0 && msg.X < g.sideWidth-1 {
-		item := (msg.Y - contentTop) / 2
+		item := (msg.Y - contentTop) / m.sidebarRowHeight()
 		index := m.sideOffset + item
-		if item >= m.sidebarCapacity() || index >= len(m.visible) {
+		if item >= m.sidebarCapacity() || index >= m.sidebarCount() {
+			return nil
+		}
+		if m.treeMode {
+			entry := m.treeRows[index]
+			m.selectTree(index)
+			if entry.file < 0 {
+				m.toggleDirectory(index)
+			} else {
+				x := msg.X - treeIndent(entry, g.sideWidth-2)
+				switch {
+				case x == 2:
+					m.toggleFold()
+				case x >= 4 && x <= 6:
+					m.toggleViewed(false)
+				}
+			}
 			return nil
 		}
 		m.selected, m.fileFocus, m.xOffset = m.visible[index], true, 0
@@ -138,7 +154,7 @@ func (m *Model) dragScroll(y int) {
 	position := min(max(0, y-contentTop), m.bodyHeight()-1)
 	track := max(1, m.bodyHeight()-1)
 	if m.dragging == "files" {
-		m.sideOffset = position * max(0, len(m.visible)-m.sidebarCapacity()) / track
+		m.sideOffset = position * max(0, m.sidebarCount()-m.sidebarCapacity()) / track
 		m.clampSidebar()
 	} else {
 		m.offset = position * max(0, len(m.rows)-m.bodyHeight()) / track

@@ -34,7 +34,7 @@ Options:
   --version        Print version
   -h, --help       Show this help
 
-Keys: Tab focus · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
+Keys: Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
 Mouse: click files, fold arrows, viewed boxes, and toolbar; scroll or drag rails.
 Only committed branch changes are included; the worktree and index are untouched.
 `

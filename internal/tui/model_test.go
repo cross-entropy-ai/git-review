@@ -30,6 +30,14 @@ func press(m *Model, key string) {
 		m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	case "enter":
 		m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	case "left":
+		m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	case "right":
+		m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	case "up":
+		m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	case "down":
+		m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	case " ":
 		m.Update(tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}})
 	default:
@@ -176,7 +184,7 @@ func TestRefreshAndHelp(t *testing.T) {
 	}
 	m.Update(tea.WindowSizeMsg{Width: 45, Height: 12})
 	press(m, "?")
-	for i := 0; i < 30; i++ {
+	for i := 0; i < len(m.helpLines()); i++ {
 		press(m, "j")
 	}
 	if !strings.Contains(m.View(), "Working tree") {
