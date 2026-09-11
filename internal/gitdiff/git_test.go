@@ -36,6 +36,9 @@ func repo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	git(t, dir, "init", "-q", "-b", "main")
+	// Fixture commits must not leave background maintenance racing metadata checks.
+	git(t, dir, "config", "maintenance.auto", "false")
+	git(t, dir, "config", "gc.auto", "0")
 	git(t, dir, "config", "commit.gpgsign", "false")
 	git(t, dir, "config", "core.hooksPath", os.DevNull)
 	write(t, dir, "source.go", "package main\n\nfunc old() {}\n")

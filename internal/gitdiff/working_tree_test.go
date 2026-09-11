@@ -168,8 +168,16 @@ func TestWorkingTreeSparseAndSplitIndexes(t *testing.T) {
 		if len(c.Files) != 1 || c.Files[0].Path != "keep/a.txt" {
 			t.Fatalf("sparse=%v: wrong changes %+v", sparse, c.Files)
 		}
-		if !reflect.DeepEqual(before, gitDirectoryContents(t, filepath.Join(dir, ".git"))) {
-			t.Fatalf("sparse=%v: modified Git metadata", sparse)
+		after := gitDirectoryContents(t, filepath.Join(dir, ".git"))
+		for path, content := range after {
+			if original, ok := before[path]; !ok || content != original {
+				t.Errorf("sparse=%v: Git metadata changed: %s (existed=%v)", sparse, path, ok)
+			}
+		}
+		for path := range before {
+			if _, ok := after[path]; !ok {
+				t.Errorf("sparse=%v: Git metadata removed: %s", sparse, path)
+			}
 		}
 	}
 }
