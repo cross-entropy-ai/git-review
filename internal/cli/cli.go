@@ -11,8 +11,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
-	"github.com/imwithye/git-review/internal/gitdiff"
-	"github.com/imwithye/git-review/internal/tui"
+	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/tui"
 	"github.com/muesli/termenv"
 )
 

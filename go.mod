@@ -1,4 +1,4 @@
-module github.com/imwithye/git-review
+module github.com/cross-entropy-ai/git-review
 
 go 1.27.1
 

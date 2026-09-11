@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/imwithye/git-review/internal/gitdiff"
-	"github.com/imwithye/git-review/internal/review"
+	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/review"
 )
 
 type row struct {

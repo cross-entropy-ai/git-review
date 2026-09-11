@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/imwithye/git-review/internal/tui"
+	"github.com/cross-entropy-ai/git-review/internal/tui"
 )
 
 func TestArguments(t *testing.T) {

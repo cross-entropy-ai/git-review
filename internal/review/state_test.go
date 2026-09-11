@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/imwithye/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
 )
 
 func TestStateRoundTripAndSnapshotIsolation(t *testing.T) {

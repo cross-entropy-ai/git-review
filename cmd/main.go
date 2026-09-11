@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/imwithye/git-review/internal/cli"
+	"github.com/cross-entropy-ai/git-review/internal/cli"
 )
 
 var version = "dev"

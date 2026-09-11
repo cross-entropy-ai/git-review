@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/imwithye/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
 )
 
 func Path(c *gitdiff.Comparison) string {

@@ -8,7 +8,7 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/imwithye/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
 )
 
 // safeText keeps repository content from emitting terminal control sequences.

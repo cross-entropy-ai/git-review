@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/imwithye/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
 )
 
 func sampleModel(color bool) *Model {
