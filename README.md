@@ -2,7 +2,7 @@
 
 A local, pull-request-style review TUI written in Go. Browse all committed changes on a branch with a file sidebar, total and per-file additions/deletions, line numbers, syntax highlighting, folding, and saved viewed progress. Use the keyboard or mouse in an interface with bordered panes, review progress, and clickable controls.
 
-The selected file is outlined in blue in the diff pane, with a bold blue file name. The interface preserves your terminal background, using colored line numbers and signs for additions and deletions while retaining syntax highlighting. The outline follows keyboard and mouse selection and remains visible when the file is folded or its header has scrolled out of view.
+The selected file is outlined in blue in the diff pane, with a bold blue file name. File headers have a subtle background; the selected sidebar entry and diff header use a blue background. Code and other areas preserve your terminal background, using colored line numbers and signs for additions and deletions while retaining syntax highlighting. The outline follows keyboard and mouse selection and remains visible when the file is folded or its header has scrolled out of view.
 
 ```text
   git review  /  .review-fixture                                                          r Refresh   ? Help

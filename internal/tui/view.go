@@ -209,8 +209,10 @@ func (m *Model) sidebar(g geometry) []string {
 		if m.viewed[file.Path] {
 			box = m.ink(green, "[✓]")
 		}
+		bg := ""
 		if index == m.selected {
 			cursor = m.ink(accent, "›")
+			bg = selectionBackground
 		}
 		baseName := safeText(path.Base(file.Path))
 		if index == m.selected {
@@ -220,7 +222,7 @@ func (m *Model) sidebar(g geometry) []string {
 		if index == m.selected {
 			name = m.bold(name)
 		}
-		result = append(result, m.surface(foreground, name, width))
+		result = append(result, m.surfaceWithBackground(foreground, bg, name, width))
 		directory := path.Dir(file.Path)
 		if directory == "." {
 			directory = "root"
@@ -230,7 +232,7 @@ func (m *Model) sidebar(g geometry) []string {
 			stats = m.ink(muted, "binary")
 		}
 		detail := fit("       "+safeText(directory), max(0, width-ansi.StringWidth(stats)-1)) + stats + " "
-		result = append(result, m.surface(muted, detail, width))
+		result = append(result, m.surfaceWithBackground(muted, bg, detail, width))
 	}
 	for len(result) < g.bodyHeight {
 		result = append(result, m.surface(foreground, "", width))
@@ -282,11 +284,13 @@ func (m *Model) renderRowContent(row row, width int) string {
 			stats = m.ink(muted, "binary")
 		}
 		right := " " + m.ink(muted, file.Status) + " " + stats + " " + fit(box, viewedButtonWidth)
+		bg := headerBackground
 		if row.file == m.selected {
 			name = m.ink(accent, name)
+			bg = selectionBackground
 		}
 		left := " " + m.ink(accent, fold) + " " + m.bold(name)
-		return m.surface(foreground, fit(left, max(1, width-ansi.StringWidth(right)))+right, width)
+		return m.surfaceWithBackground(foreground, bg, fit(left, max(1, width-ansi.StringWidth(right)))+right, width)
 	case 'h':
 		return m.surface(muted, " "+safeText(row.text), width)
 	case 'm':
