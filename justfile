@@ -1,6 +1,7 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
 version := "0.1.0"
+agg := env_var_or_default("AGG", "agg")
 
 # Show available development commands.
 default:
@@ -46,6 +47,18 @@ fixture:
 # Open the sample review (creates the fixture if it does not exist).
 demo: build fixture
     ./git-review -C .review-fixture
+
+# Record the guided demo using asciinema, tmux, and Python 3.
+record-demo: build
+    python3 scripts/record-demo.py
+
+# Render the recording as an animated README preview (requires agg).
+demo-gif:
+    {{agg}} --quiet --font-size 14 --line-height 1.3 --theme github-dark --fps-cap 12 --idle-time-limit 3 --select 3..33 --last-frame-duration 1 docs/demo.cast docs/demo.gif
+
+# Publish the checked recording to asciinema.org.
+upload-demo:
+    asciinema upload --server-url https://asciinema.org --visibility public --title 'git review — Review your branch. Keep your place.' --description 'A local PR-style review experience for your terminal. Browse a branch, switch to a file tree, mark files viewed, resume a review, and include untracked files with git review -w. https://github.com/cross-entropy-ai/git-review' docs/demo.cast
 
 # Install to a chosen directory; default is the user's local bin.
 [positional-arguments]

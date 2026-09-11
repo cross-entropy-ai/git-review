@@ -1,165 +1,87 @@
 # git review
 
-A local, pull-request-style review TUI written in Go. Browse committed branch changes or use `-w` to review all uncommitted changes against HEAD, with a file sidebar, total and per-file additions/deletions, line numbers, syntax highlighting, folding, and saved viewed progress. Use the keyboard or mouse in an interface with bordered panes, review progress, and clickable controls.
+**Review your branch. Keep your place.**
 
-The selected file is outlined in blue in the diff pane, with a bold blue file name. File headers have a contrasting neutral background; the selected sidebar entry and diff header use a blue background. Code and other areas preserve your terminal background, using colored line numbers and signs for additions and deletions while retaining syntax highlighting. The outline follows keyboard and mouse selection and remains visible when the file is folded or its header has scrolled out of view.
+A pull-request-style review experience, right in your terminal. Browse the whole branch, read highlighted diffs, and check off files as you go.
 
-```text
-  git review  /  .review-fixture                                                          r Refresh   ? Help
-  main → feature/health-check  │  8 files  +26 −8                                       ━━━━━━━━━━ 0/8 viewed
-  / server  (1 matches)                                                                C Collapse   E Expand
-╭─ FILES · 1 ──────────────────────╮ ╭─ DIFF · internal/server/server.go ────────────────────────────────────╮
-│›▾ [ ] server.go                  │ │ ▾ internal/server/server.go                      M +14 −3  [ ] Viewed ┃
-│       internal/server     +14 −3 │ │ @@ -1,11 +1,22 @@                                                     ┃
-│                                  │ │   1    1   │ package server                                           ┃
-│                                  │ │   2    2   │                                                          ┃
-│                                  │ │   3    3   │ import (                                                 │
-│                                  │ │   4      - │     "fmt"                                                │
-│                                  │ │        4 + │     "encoding/json"                                      │
-│                                  │ │   5    5   │     "net/http"                                           │
-│                                  │ │        6 + │     "time"                                               │
-│                                  │ │   6    7   │ )                                                        │
-│                                  │ │   7    8   │                                                          │
-╰──────────────────────────────────╯ ╰───────────────────────────────────────────────────────────────────────╯
-  internal/server/server.go                                                                               39%
-  Tab Focus   Space Fold   t Tree/List   v Viewed   / Filter                                 ? Help   q Quit
-```
+[![Watch git review in action](docs/demo.gif)](https://asciinema.org/a/1265196)
 
-## Build and run
+[Watch the 37-second demo](https://asciinema.org/a/1265196) · [Download the recording](docs/demo.cast)
 
-Requires [Go](https://go.dev/) (see `go.mod` for the required version), [just](https://github.com/casey/just), and Git. All development tasks run through `just`.
+*Explore a branch, switch to a file tree, mark files viewed, and catch untracked files before committing.*
+
+## Make your next review easier
+
+- **See the whole change.** Get branch-wide and per-file additions and deletions, then jump straight to the code that matters.
+- **Make progress you can see.** Mark a file viewed to fold it and move on. Come back later and pick up the same review where you left off.
+- **Find your way through large diffs.** Switch between a file list and a directory tree, filter by path, and collapse files you've already read.
+- **Review before you commit.** `git review -w` includes staged edits, unstaged edits, and new files Git hasn't tracked yet.
+- **Work the way you like.** Use the keyboard or mouse, with syntax highlighting and automatic light and dark themes.
+
+One binary. Runs locally. No GitHub account or browser needed.
+
+## Get started
+
+Build with [Go](https://go.dev/) (version in [go.mod](go.mod)) and [just](https://github.com/casey/just). Git is required at runtime.
 
 ```sh
-just build                         # Build ./git-review with CGO disabled
-./git-review -C /path/to/repo       # Default: main...HEAD
-./git-review --base develop
-./git-review --base main --head feature/login
-./git-review main feature/login    # Put options before positional refs
-./git-review -w                     # Staged, unstaged, and untracked files vs HEAD
-./git-review --working-tree --stat  # The same comparison as plain statistics
-./git-review --context 8
-./git-review --theme light         # Override automatic terminal theme detection
-./git-review --theme dark
-./git-review --stat                # Noninteractive output for scripts/pipes
+git clone https://github.com/cross-entropy-ai/git-review.git
+cd git-review
+just install
 ```
 
-Install the binary on your `PATH` to use it as a Git subcommand:
+Add `~/.local/bin` to your `PATH`, then run this inside any Git repository:
 
 ```sh
-just install                      # Defaults to ~/.local/bin/git-review
-# Ensure ~/.local/bin is on PATH
 git review
-git review --base origin/main
-
-# Or choose a destination
-just install /your/bin
 ```
 
-The output is a single binary. It needs no Go runtime, Node, browser, or background service; system Git is required at runtime. The default base is the first available ref in this order: `main`, `origin/main`, `master`, `origin/master`. The tool does not fetch; remote-tracking refs reflect your local repository.
+Want to take a look first? Run `just demo` from this checkout for a ready-made sample review.
 
-## Keyboard shortcuts
+## Two ways to review
 
-| Key | Action |
-| --- | --- |
-| `Tab` | Switch focus between the file list and diff |
-| `t` | Toggle the flat file list and directory tree |
-| `j` / `k`, `↑` / `↓` | Scroll the diff and follow file selection; at a scroll boundary, select the previous / next file. With sidebar focus, navigate its entries |
-| `n` / `p` | Next / previous file |
-| `Space` / `Enter` | Fold / unfold the selected file without changing viewed status |
-| `v` | Toggle viewed; marking viewed folds the file and advances to the next unviewed file |
-| `C` / `E` | Collapse / expand all files matching the current filter |
-| `/` | Filter paths, case insensitive, with Unicode support |
-| `Enter` / `Esc` | Apply / clear the filter |
-| `Ctrl+D` / `Ctrl+U`, `PgDn` / `PgUp` | Scroll down / up half a page |
-| `g` / `G`, `Home` / `End` | Top / bottom |
-| `[` / `]` | Previous / next hunk |
-| `h` / `l`, `←` / `→` | Scroll code horizontally; `0` resets |
-| `r` | Reload branches and diff |
-| `?` | Open help; `j` / `k` scroll help on small terminals |
-| `q` / `Ctrl+C` | Quit; in help, `q` closes help first |
-
-## Mouse controls
-
-Mouse support is enabled by default in terminals that support mouse reporting.
-
-| Action | Behavior |
-| --- | --- |
-| Click a file in the sidebar | Select it and jump to its diff |
-| Click a sidebar fold arrow | Fold / unfold that file |
-| Click a sidebar checkbox | Toggle viewed and fold / unfold, keeping the file selected |
-| Click a file header in the diff | Fold / unfold that file |
-| Click a file header's Viewed box | Toggle viewed without jumping to another file |
-| Scroll over the sidebar | Browse the file list independently of the diff |
-| Scroll over the diff | Scroll vertically; at a scroll boundary, select the previous / next file |
-| Shift + wheel or horizontal wheel | Scroll code horizontally |
-| Click or drag a scrollbar | Jump through that pane |
-| Click the filter field or toolbar | Filter, collapse, expand, refresh, or open help |
-| Click a footer shortcut | Run the displayed action |
-| Click a directory in tree mode | Expand / collapse its children |
-
-Use `--no-mouse` to disable mouse reporting and use native terminal text selection. Keyboard shortcuts remain available with or without mouse support. Below 90 columns the sidebar is hidden; `n` / `p` and `Tab` navigation remain available. Minimum terminal size: 45 × 12. A terminal with at least 100 columns is recommended.
-
-## File list and tree
-
-The default flat list preserves Git's diff output order, normally ordered by full path; Git ordering configuration such as `diff.orderFile` can affect it. The sidebar shows basenames with directories on the next line, so this is not a basename sort.
-
-Press `t` (or click `t Tree/List` in the footer) to switch views. The tree groups changed files by directory, sorting directories before files and names in case-sensitive lexical order at each level. Directory counts include all matching files below them. Renames appear under their destination; deleted files remain available even if they no longer exist on disk.
-
-With tree focus (`Tab`), use `j` / `k` or `↑` / `↓` to navigate entries. `←` / `h` closes a directory or moves to its parent; `→` / `l` opens a directory or enters its first child, and expands a folded file. `Space` / `Enter` toggles the focused directory or file. Clicking a directory toggles it; file arrows and viewed checkboxes work at every indentation level. Mark files viewed individually with `v` or their checkbox.
-
-Directory folding only affects the sidebar. Switching views preserves the current diff position, file folds, filter, and viewed progress; directory expansion is kept for the current session. `n` / `p` continue navigating files in diff order and reveal their ancestors automatically. Filtering shows matching paths and their ancestors with directories expanded; clear it with `Esc` to fold directories again.
-
-## Working-tree review
-
-Use `git review -w` (equivalent to `--working-tree`) to compare HEAD with the current working tree. It includes staged changes, unstaged changes, and untracked new files, while respecting Git ignore rules. Already tracked files remain included even if they match an ignore rule. Empty files, binary files, deletions, and renames are handled by the same diff viewer.
-
-For partially staged files, the final on-disk content is compared with HEAD; intermediate staged versions are not separate changes. This mode needs an existing HEAD commit and cannot be combined with base/head refs. The default command continues to review committed branch changes.
-
-Press `r` to capture current changes again. Progress uses the existing exact-snapshot model: unchanged content restores progress, while a content or HEAD change starts a fresh review for the entire comparison. Staging the same content alone does not reset progress. Source files, the real index, objects, branches, and commits are not modified; the temporary index and object store are removed after loading. Only viewed progress is saved in `.git/git-review/` unless `--no-state` is used.
-
-Git's text normalization and ignore rules apply, but hooks, clean/process filters, external diff, and textconv commands are not run. Filter-managed files therefore show their local content. Submodule commit-pointer changes are included; review uncommitted contents inside a submodule with `git review -w -C path/to/submodule`.
-
-## Comparison and progress semantics
-
-- By default, compares `merge-base(base, head)` to `head`, matching `git diff base...head`. Commits added only to the base branch do not appear as deletions in the reviewed branch.
-- **The default mode includes only committed changes.** Use `-w` to include staged, unstaged, and untracked files against HEAD. Source files, the index, branches, and commits remain untouched.
-- Refs are resolved to commit IDs before metadata, statistics, and patches are read, keeping each loaded comparison consistent if a branch moves during loading.
-- Viewed progress is saved under the current worktree's Git directory at `git-review/<snapshot>.json`, keyed by merge-base and head commit, or by HEAD and the captured content tree in working-tree mode. Reopening the same comparison restores progress; changing either snapshot endpoint starts a fresh review so new changes are not marked viewed accidentally.
-- Ordinary folding lasts for the session. `--no-state` disables progress-file reads and writes, including for read-only repositories. Save failures appear in the status line and do not prevent browsing.
-- Supports additions, deletions, modifications, renames, mode changes, symlinks, submodule pointers, and binary files. Binary files display `binary` and do not contribute to text-line totals.
-- NUL-delimited Git metadata preserves filenames containing spaces, tabs, newlines, and Unicode. Terminal control characters are escaped for display. External diff and textconv helpers are disabled.
-
-## Development and sample repository
+**Before opening a PR** — review your branch's committed changes against `main`:
 
 ```sh
-just                 # List tasks
-just deps            # Download and reconcile Go dependencies
-just fmt             # go fmt
-just lint            # Formatting check and go vet
-just test            # Unit tests and real-Git integration tests
-just test-race       # Race detector; requires a local C toolchain
-just check           # lint + test + build
-just fixture         # Create ignored .review-fixture/
-just demo            # Build and open the sample review
-just run --base main
+git review
 ```
 
-The fixture includes Go, TypeScript, JSON, and Markdown changes, deletions, a rename, a binary, Unicode filenames, and a missing final newline. `just fixture` preserves an existing fixture directory. Automated tests create independent temporary repositories and do not modify this project's history.
+**Before committing** — review everything pending against `HEAD`, including new files:
 
-```text
-cmd/                  CLI entry point and injected version
-internal/cli/         Arguments, terminal detection, and --stat
-internal/gitdiff/     Git commands, NUL metadata, and unified patch parsing
-internal/review/      Atomic local progress storage
-internal/tui/         Bubble Tea model, layout, and Chroma highlighting
-scripts/              Sample repository generator
-justfile              Build and development tasks
+```sh
+git review -w
 ```
 
-## MVP scope
+A few useful variations:
 
-This MVP provides local review with a single-column unified diff. GitHub authentication, remote PR fetching, comments, submitting reviews, editing files, and side-by-side diffs are outside its scope.
+```sh
+git review --base develop     # Choose a different base branch
+git review -C /path/to/repo    # Review another repository
+git review --theme light      # Choose light or dark manually
+git review --stat             # Print a quick change summary
+```
 
-`--theme auto` (the default) detects the terminal background at startup using [termenv](https://github.com/muesli/termenv), with `COLORFGBG` as a fallback. If detection is unavailable, the theme defaults to dark. Use `--theme light` or `--theme dark` to override detection, including in terminal multiplexers. Restart after changing the terminal background. Both palettes cover headers, selection, borders, line numbers, change statistics, and syntax highlighting; code rows keep the terminal's background.
+## A few keys go a long way
 
-`NO_COLOR` or `--no-color` disables colors and syntax highlighting, including header fills, and skips background detection. Highlighting uses each hunk's available context, so multiline strings or comments crossing omitted lines may not retain complete lexer state. Hunks larger than 256 KiB use plain code rendering while remaining fully browsable. A Git command's output is limited to 64 MiB; larger comparisons return an explicit error and can be narrowed by choosing a smaller commit range.
+| Key | What it does |
+| --- | --- |
+| `↑` / `↓` or `j` / `k` | Scroll and navigate files |
+| `n` / `p` | Jump to the next / previous file |
+| `Space` | Fold or unfold the selected file |
+| `t` | Toggle Tree/List |
+| `v` | Mark viewed, fold, and move on |
+| `/` | Find files by path |
+| `Tab` | Switch between the sidebar and diff |
+| `r` | Refresh the review |
+| `?` / `q` | Help / quit |
+
+Prefer the mouse? Click a file to jump to it, click its checkbox to mark it viewed, and scroll either pane. In the tree, click a directory to expand or collapse it.
+
+## Good to know
+
+- The default review shows committed branch changes since the common ancestor with your base. `-w` / `--working-tree` shows current on-disk changes against `HEAD`, respecting Git ignore rules.
+- Your files and staging area stay as they are. Viewed progress is saved locally under `.git/git-review/`; use `--no-state` for a session without saved progress.
+- Progress belongs to an exact comparison. Refreshing changed content starts a fresh review for the whole comparison; unchanged content keeps its viewed marks.
+- Use a terminal at least 90 columns wide for the sidebar. `--no-mouse` restores native terminal text selection; `--no-color` disables colors.
+
+For the full option list, run `git review --help`. To work on the project, run `just` for available tasks or `just check` to verify a change.

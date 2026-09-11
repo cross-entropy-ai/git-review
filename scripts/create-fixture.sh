@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-fixture="$root/.review-fixture"
+fixture="${1:-$root/.review-fixture}"
 if [[ -e "$fixture" ]]; then
   echo "Fixture already exists: $fixture (kept as-is)"
   exit 0
