@@ -22,7 +22,47 @@ One binary. Runs locally. No GitHub account or browser needed.
 
 ## Get started
 
-Build with [Go](https://go.dev/) (version in [go.mod](go.mod)) and [just](https://github.com/casey/just). Git is required at runtime.
+Git is required. Choose Homebrew or download a single binary—no Go toolchain needed for a released version.
+
+### Homebrew
+
+```sh
+brew install cross-entropy-ai/tap/git-review
+```
+
+Upgrade later with `brew update && brew upgrade git-review`.
+
+**Before the first release:** use `brew install --HEAD cross-entropy-ai/tap/git-review` to build the latest source. Homebrew installs Go for this source build. The standard command above becomes available after the first release updates the tap.
+
+### Download a binary
+
+Open [Releases](https://github.com/cross-entropy-ai/git-review/releases/latest) and download the archive for your machine:
+
+| Platform | Archive suffix |
+| --- | --- |
+| macOS · Apple Silicon | `darwin_arm64.tar.gz` |
+| macOS · Intel | `darwin_amd64.tar.gz` |
+| Linux · x86-64 | `linux_amd64.tar.gz` |
+| Linux · ARM64 | `linux_arm64.tar.gz` |
+
+Release downloads become available with the first version tag. Each release includes `checksums.txt` for SHA-256 verification. Extract your downloaded archive and put `git-review` on your `PATH`, for example:
+
+```sh
+# Replace the filename with your downloaded archive.
+tar -xzf git-review_0.1.0_darwin_arm64.tar.gz
+mkdir -p ~/.local/bin
+install -m 755 git-review ~/.local/bin/git-review
+```
+
+Add `export PATH="$HOME/.local/bin:$PATH"` to your shell configuration if needed. Then, inside any Git repository:
+
+```sh
+git review
+```
+
+### Build from source
+
+Prefer to build it yourself? Install [Go](https://go.dev/) (version in [go.mod](go.mod)) and [just](https://github.com/casey/just):
 
 ```sh
 git clone https://github.com/cross-entropy-ai/git-review.git
@@ -30,13 +70,7 @@ cd git-review
 just install
 ```
 
-Add `~/.local/bin` to your `PATH`, then run this inside any Git repository:
-
-```sh
-git review
-```
-
-Want to take a look first? Run `just demo` from this checkout for a ready-made sample review.
+This installs to `~/.local/bin`. Run `just demo` from the checkout for a ready-made sample review.
 
 ## Two ways to review
 
@@ -85,3 +119,5 @@ Prefer the mouse? Click a file to jump to it, click its checkbox to mark it view
 - Use a terminal at least 90 columns wide for the sidebar. `--no-mouse` restores native terminal text selection; `--no-color` disables colors.
 
 For the full option list, run `git review --help`. To work on the project, run `just` for available tasks or `just check` to verify a change.
+
+Maintainers: see [Publishing a release](docs/releasing.md) for release automation and Homebrew setup.

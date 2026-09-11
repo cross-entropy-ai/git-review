@@ -65,3 +65,8 @@ upload-demo:
 install dest=(env_var("HOME") / ".local/bin"): build
     install -d "$1"
     install -m 755 git-review "$1/git-review"
+
+# Build macOS/Linux amd64/arm64 archives, checksums, and a Homebrew formula.
+[positional-arguments]
+dist tag:
+    python3 scripts/release.py "$1"
