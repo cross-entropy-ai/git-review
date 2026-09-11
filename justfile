@@ -66,7 +66,11 @@ install dest=(env_var("HOME") / ".local/bin"): build
     install -d "$1"
     install -m 755 git-review "$1/git-review"
 
-# Build macOS/Linux amd64/arm64 archives, checksums, and a Homebrew formula.
+# Build macOS/Linux amd64/arm64 archives, checksums, and an installer.
 [positional-arguments]
 dist tag:
     python3 scripts/release.py "$1"
+
+# Verify installer platform selection, checksums, and failed upgrades offline.
+test-installer:
+    python3 scripts/test-installer.py

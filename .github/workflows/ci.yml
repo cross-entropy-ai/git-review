@@ -22,7 +22,7 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
-      - run: just check test-race
+      - run: just check test-race test-installer
       - name: Build all release targets
         if: runner.os == 'Linux'
         run: just dist v0.0.0

@@ -22,43 +22,36 @@ One binary. Runs locally. No GitHub account or browser needed.
 
 ## Get started
 
-Git is required. Choose Homebrew or download a single binary—no Go toolchain needed for a released version.
-
-### Homebrew
+Install the latest release on macOS or Linux with one command:
 
 ```sh
-brew install cross-entropy-ai/tap/git-review
+curl -fsSL https://github.com/cross-entropy-ai/git-review/releases/latest/download/install.sh | sh
 ```
 
-Upgrade later with `brew update && brew upgrade git-review`.
+The installer detects your platform, verifies the download's SHA-256 checksum, and installs to `~/.local/bin`. Run the same command to upgrade. Git is required; no Go toolchain or package manager is needed.
 
-**Before the first release:** use `brew install --HEAD cross-entropy-ai/tap/git-review` to build the latest source. Homebrew installs Go for this source build. The standard command above becomes available after the first release updates the tap.
+Add `export PATH="$HOME/.local/bin:$PATH"` to your shell configuration if needed, then run `git review` inside any Git repository. Set `INSTALL_DIR` to choose another location: `curl -fsSL https://github.com/cross-entropy-ai/git-review/releases/latest/download/install.sh | INSTALL_DIR=/your/bin sh`.
 
-### Download a binary
+### Download manually
 
-Open [Releases](https://github.com/cross-entropy-ai/git-review/releases/latest) and download the archive for your machine:
+Prefer to install it yourself? These links always download the latest release:
 
-| Platform | Archive suffix |
+| Platform | Download |
 | --- | --- |
-| macOS · Apple Silicon | `darwin_arm64.tar.gz` |
-| macOS · Intel | `darwin_amd64.tar.gz` |
-| Linux · x86-64 | `linux_amd64.tar.gz` |
-| Linux · ARM64 | `linux_arm64.tar.gz` |
+| macOS · Apple Silicon | [darwin_arm64](https://github.com/cross-entropy-ai/git-review/releases/latest/download/git-review_darwin_arm64.tar.gz) |
+| macOS · Intel | [darwin_amd64](https://github.com/cross-entropy-ai/git-review/releases/latest/download/git-review_darwin_amd64.tar.gz) |
+| Linux · x86-64 | [linux_amd64](https://github.com/cross-entropy-ai/git-review/releases/latest/download/git-review_linux_amd64.tar.gz) |
+| Linux · ARM64 | [linux_arm64](https://github.com/cross-entropy-ai/git-review/releases/latest/download/git-review_linux_arm64.tar.gz) |
 
-Release downloads become available with the first version tag. Each release includes `checksums.txt` for SHA-256 verification. Extract your downloaded archive and put `git-review` on your `PATH`, for example:
+Download [checksums.txt](https://github.com/cross-entropy-ai/git-review/releases/latest/download/checksums.txt) to verify your archive. Extract it and put `git-review` on your `PATH`, for example on Apple Silicon:
 
 ```sh
-# Replace the filename with your downloaded archive.
-tar -xzf git-review_0.1.0_darwin_arm64.tar.gz
+tar -xzf git-review_darwin_arm64.tar.gz
 mkdir -p ~/.local/bin
 install -m 755 git-review ~/.local/bin/git-review
 ```
 
-Add `export PATH="$HOME/.local/bin:$PATH"` to your shell configuration if needed. Then, inside any Git repository:
-
-```sh
-git review
-```
+Downloads and the installer become available after the first release. You can build from source in the meantime.
 
 ### Build from source
 
@@ -120,4 +113,4 @@ Prefer the mouse? Click a file to jump to it, click its checkbox to mark it view
 
 For the full option list, run `git review --help`. To work on the project, run `just` for available tasks or `just check` to verify a change.
 
-Maintainers: see [Publishing a release](docs/releasing.md) for release automation and Homebrew setup.
+Maintainers: see [Publishing a release](docs/releasing.md) for release automation.
