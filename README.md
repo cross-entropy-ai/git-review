@@ -1,20 +1,26 @@
 # git review
 
-A local, pull-request-style review TUI written in Go. Browse all committed changes on a branch with a file sidebar, total and per-file additions/deletions, line numbers, syntax highlighting, folding, and saved viewed progress.
+A local, pull-request-style review TUI written in Go. Browse all committed changes on a branch with a file sidebar, total and per-file additions/deletions, line numbers, syntax highlighting, folding, and saved viewed progress. Use the keyboard or mouse in a dark interface with bordered panes, review progress, and clickable controls.
 
 ```text
- git review │ main → feature/health-check
- 8 files  +26 -8   2/8 viewed   merge-base 6c97a421 · committed changes
- ─────────────────────────────────────────────────────────────────────────────
- FILES                         │ ● DIFF  internal/server/server.go
-  ▸ ✓ assets/logo.png          │ ▾ internal/server/server.go        M +14 -3
-      M  binary                │ @@ -1,12 +1,23 @@
- ›▾ ○ internal/server/server.go│     1     1   package server
-      M  +14 -3                │     2     2
-  ▾ ○ config.json              │     3     3   import (
-      M  +4 -3                 │     4       -     "fmt"
-                               │           4 +     "encoding/json"
- ? help  q quit  Tab focus  n/p file  Space fold  v viewed  / filter
+  git review  /  .review-fixture                                                          r Refresh   ? Help
+  main → feature/health-check  │  8 files  +26 −8                                       ━━━━━━━━━━ 0/8 viewed
+  / server  (1 matches)                                                                C Collapse   E Expand
+╭─ FILES · 1 ──────────────────────╮ ╭─ DIFF · internal/server/server.go ────────────────────────────────────╮
+│›▾ [ ] server.go                  │ │ ▾ internal/server/server.go                      M +14 −3  [ ] Viewed ┃
+│       internal/server     +14 −3 │ │ @@ -1,11 +1,22 @@                                                     ┃
+│                                  │ │   1    1   │ package server                                           ┃
+│                                  │ │   2    2   │                                                          ┃
+│                                  │ │   3    3   │ import (                                                 │
+│                                  │ │   4      - │     "fmt"                                                │
+│                                  │ │        4 + │     "encoding/json"                                      │
+│                                  │ │   5    5   │     "net/http"                                           │
+│                                  │ │        6 + │     "time"                                               │
+│                                  │ │   6    7   │ )                                                        │
+│                                  │ │   7    8   │                                                          │
+╰──────────────────────────────────╯ ╰───────────────────────────────────────────────────────────────────────╯
+  internal/server/server.go                                                                               39%
+  ? Help   q Quit   Tab Focus   Space Fold   v Viewed   / Filter
 ```
 
 ## Build and run
@@ -65,7 +71,25 @@ The output is a single binary. It needs no Go runtime, Node, browser, or backgro
 | `?` | Open help; `j` / `k` scroll help on small terminals |
 | `q` / `Ctrl+C` | Quit; in help, `q` closes help first |
 
-Mouse-wheel scrolling is supported. Below 90 columns the sidebar is hidden; `n` / `p` and `Tab` navigation remain available. Minimum terminal size: 45 × 12. A dark terminal with at least 100 columns is recommended.
+## Mouse controls
+
+Mouse support is enabled by default in terminals that support mouse reporting.
+
+| Action | Behavior |
+| --- | --- |
+| Click a file in the sidebar | Select it and jump to its diff |
+| Click a sidebar fold arrow | Fold / unfold that file |
+| Click a sidebar checkbox | Toggle viewed and fold / unfold, keeping the file selected |
+| Click a file header in the diff | Fold / unfold that file |
+| Click a file header's Viewed box | Toggle viewed without jumping to another file |
+| Scroll over the sidebar | Browse the file list independently of the diff |
+| Scroll over the diff | Scroll the diff vertically |
+| Shift + wheel or horizontal wheel | Scroll code horizontally |
+| Click or drag a scrollbar | Jump through that pane |
+| Click the filter field or toolbar | Filter, collapse, expand, refresh, or open help |
+| Click a footer shortcut | Run the displayed action |
+
+Use `--no-mouse` to disable mouse reporting and use native terminal text selection. Keyboard shortcuts remain available with or without mouse support. Below 90 columns the sidebar is hidden; `n` / `p` and `Tab` navigation remain available. Minimum terminal size: 45 × 12. A dark terminal with at least 100 columns is recommended.
 
 ## Comparison and progress semantics
 

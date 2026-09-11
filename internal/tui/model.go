@@ -3,7 +3,6 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,6 +41,8 @@ type Model struct {
 	selected   int
 	offset     int
 	xOffset    int
+	sideOffset int
+	dragging   string
 	width      int
 	height     int
 	fileFocus  bool
@@ -67,6 +68,7 @@ func (m *Model) install(c *gitdiff.Comparison) {
 	m.collapsed = make(map[string]bool)
 	m.highlights = make(map[highlightKey][]string)
 	m.selected, m.offset, m.xOffset = 0, 0, 0
+	m.sideOffset, m.dragging = 0, ""
 	if m.persist {
 		viewed, err := review.Load(review.Path(c))
 		if err != nil {
@@ -90,6 +92,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
 		m.clampOffset()
+		m.ensureSelectedVisible()
 	case loadedMsg:
 		m.loading = false
 		if msg.err != nil {
@@ -99,14 +102,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.install(msg.comparison)
 		}
 	case tea.MouseMsg:
-		if !m.help && !m.filtering {
-			switch msg.Button {
-			case tea.MouseButtonWheelUp:
-				m.scroll(-3)
-			case tea.MouseButtonWheelDown:
-				m.scroll(3)
-			}
-		}
+		return m, m.mouse(msg)
 	case tea.KeyMsg:
 		// Terminals can deliver several ordinary keystrokes in one read.
 		// Preserve their order so a leading '/' starts filtering immediately.
@@ -204,6 +200,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clampOffset()
 			if len(m.visible) > 0 {
 				m.selected = m.visible[len(m.visible)-1]
+				m.ensureSelectedVisible()
 			}
 		case "h", "left":
 			m.xOffset = max(0, m.xOffset-8)
@@ -212,12 +209,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "0":
 			m.xOffset = 0
 		case " ", "enter":
-			if len(m.visible) > 0 {
-				path := m.comparison.Files[m.selected].Path
-				m.collapsed[path] = !m.collapsed[path]
-				m.rebuild()
-				m.jumpSelected()
-			}
+			m.toggleFold()
 		case "C", "E":
 			for _, i := range m.visible {
 				m.collapsed[m.comparison.Files[i].Path] = key == "C"
@@ -225,7 +217,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rebuild()
 			m.jumpSelected()
 		case "v":
-			m.toggleViewed()
+			m.toggleViewed(true)
 		case "]":
 			m.moveHunk(1)
 		case "[":
@@ -244,7 +236,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) bodyHeight() int { return max(1, m.height-6) }
+func (m *Model) bodyHeight() int { return max(1, m.height-7) }
 
 func (m *Model) rebuild() {
 	m.visible = nil
@@ -278,6 +270,7 @@ func (m *Model) rebuild() {
 		m.selected = m.visible[0]
 	}
 	m.clampOffset()
+	m.ensureSelectedVisible()
 }
 
 func (m *Model) clampOffset() { m.offset = min(max(0, m.offset), max(0, len(m.rows)-m.bodyHeight())) }
@@ -285,6 +278,7 @@ func (m *Model) clampOffset() { m.offset = min(max(0, m.offset), max(0, len(m.ro
 func (m *Model) selectAtOffset() {
 	if m.offset < len(m.rows) {
 		m.selected = m.rows[m.offset].file
+		m.ensureSelectedVisible()
 	}
 }
 
@@ -298,6 +292,7 @@ func (m *Model) scroll(delta int) {
 }
 
 func (m *Model) jumpSelected() {
+	m.ensureSelectedVisible()
 	for i, row := range m.rows {
 		if row.kind == 'f' && row.file == m.selected {
 			m.offset = i
@@ -323,12 +318,23 @@ func (m *Model) moveHunk(direction int) {
 		if m.rows[i].kind == 'h' {
 			m.offset, m.selected = i, m.rows[i].file
 			m.clampOffset()
+			m.ensureSelectedVisible()
 			return
 		}
 	}
 }
 
-func (m *Model) toggleViewed() {
+func (m *Model) toggleFold() {
+	if len(m.visible) == 0 {
+		return
+	}
+	path := m.comparison.Files[m.selected].Path
+	m.collapsed[path] = !m.collapsed[path]
+	m.rebuild()
+	m.jumpSelected()
+}
+
+func (m *Model) toggleViewed(advance bool) {
 	if len(m.visible) == 0 {
 		return
 	}
@@ -341,7 +347,7 @@ func (m *Model) toggleViewed() {
 		}
 	}
 	m.rebuild()
-	if viewed {
+	if viewed && advance {
 		start := 0
 		for i, file := range m.visible {
 			if file == m.selected {
@@ -368,11 +374,4 @@ func (m *Model) viewedCount() int {
 		}
 	}
 	return count
-}
-
-func fileStats(file gitdiff.File) string {
-	if file.Binary {
-		return "binary"
-	}
-	return fmt.Sprintf("+%d -%d", file.Added, file.Deleted)
 }

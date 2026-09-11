@@ -28,10 +28,12 @@ Options:
   --stat           Print file and total statistics without opening the TUI
   --no-color       Disable color and syntax highlighting (also NO_COLOR)
   --no-state       Keep viewed progress in memory only
+  --no-mouse       Disable mouse reporting for native terminal text selection
   --version        Print version
   -h, --help       Show this help
 
 Keys: Tab focus · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
+Mouse: click files, fold arrows, viewed boxes, and toolbar; scroll or drag rails.
 Only committed branch changes are included; the worktree and index are untouched.
 `
 
@@ -39,7 +41,7 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	flags := flag.NewFlagSet("git-review", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	var opts gitdiff.Options
-	var stat, noColor, noState, showVersion bool
+	var stat, noColor, noState, noMouse, showVersion bool
 	flags.StringVar(&opts.Base, "base", "", "base ref")
 	flags.StringVar(&opts.Head, "head", "HEAD", "head ref")
 	flags.StringVar(&opts.Dir, "C", ".", "repository directory")
@@ -47,6 +49,7 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	flags.BoolVar(&stat, "stat", false, "print statistics")
 	flags.BoolVar(&noColor, "no-color", false, "disable colors")
 	flags.BoolVar(&noState, "no-state", false, "disable progress persistence")
+	flags.BoolVar(&noMouse, "no-mouse", false, "disable mouse reporting")
 	flags.BoolVar(&showVersion, "version", false, "show version")
 	flags.Usage = func() { fmt.Fprint(stdout, usage) }
 	if err := flags.Parse(args); err != nil {
@@ -101,7 +104,11 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	}
 	_, envNoColor := os.LookupEnv("NO_COLOR")
 	model := tui.New(c, opts, !noColor && !envNoColor && os.Getenv("TERM") != "dumb", !noState)
-	p := tea.NewProgram(model, tea.WithOutput(stdout), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	programOptions := []tea.ProgramOption{tea.WithOutput(stdout), tea.WithAltScreen()}
+	if !noMouse {
+		programOptions = append(programOptions, tea.WithMouseCellMotion())
+	}
+	p := tea.NewProgram(model, programOptions...)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(stderr, "git-review:", err)
 		return 1
