@@ -1,0 +1,6 @@
+/git-review
+/bin/
+/.review-fixture/
+/coverage.out
+*.test
+.DS_Store
