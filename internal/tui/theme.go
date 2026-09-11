@@ -7,18 +7,12 @@ import (
 )
 
 const (
-	background        = "0d1117"
-	panel             = "161b22"
-	raised            = "21262d"
-	border            = "30363d"
-	foreground        = "c9d1d9"
-	muted             = "8b949e"
-	accent            = "79c0ff"
-	green             = "7ee787"
-	red               = "ffa198"
-	addedBackground   = "12261e"
-	deletedBackground = "2b161b"
-	selection         = "1c2d41"
+	border     = "30363d"
+	foreground = "c9d1d9"
+	muted      = "8b949e"
+	accent     = "79c0ff"
+	green      = "7ee787"
+	red        = "ffa198"
 )
 
 func colorCode(layer int, hex string) string {
@@ -40,13 +34,13 @@ func (m *Model) bold(text string) string {
 	return "\x1b[1m" + text + "\x1b[22m"
 }
 
-// Restore the enclosing surface after nested styles or syntax token resets.
-func (m *Model) surface(fg, bg, text string, width int) string {
+// Preserve the terminal background and restore text color after nested styles.
+func (m *Model) surface(fg, text string, width int) string {
 	text = fit(text, width)
 	if !m.color {
 		return text
 	}
-	fgCode, bgCode := colorCode(38, fg), colorCode(48, bg)
-	text = strings.NewReplacer("\x1b[0m", fgCode+bgCode, "\x1b[39m", fgCode, "\x1b[49m", bgCode).Replace(text)
-	return fgCode + bgCode + text + "\x1b[0m"
+	fgCode := colorCode(38, fg)
+	text = strings.NewReplacer("\x1b[0m", fgCode, "\x1b[39m", fgCode).Replace(text)
+	return fgCode + text + "\x1b[0m"
 }

@@ -47,7 +47,7 @@ func (m *Model) View() string {
 	if m.width >= 90 {
 		left = "  " + branches + m.ink(border, "  │  ") + stats
 	}
-	out = append(out, m.surface(foreground, background, fit(left, m.width-ansi.StringWidth(progress))+progress, m.width))
+	out = append(out, m.surface(foreground, fit(left, m.width-ansi.StringWidth(progress))+progress, m.width))
 	out = append(out, m.controlRow(2, ""))
 
 	if m.help {
@@ -60,12 +60,12 @@ func (m *Model) View() string {
 		}
 		top := m.panelEdge(diffTitle, m.width-g.diffX, !m.fileFocus, true)
 		if g.sideWidth > 0 {
-			top = m.panelEdge(sideTitle, g.sideWidth, m.fileFocus, true) + m.surface(foreground, background, " ", 1) + top
+			top = m.panelEdge(sideTitle, g.sideWidth, m.fileFocus, true) + m.surface(foreground, " ", 1) + top
 		}
 		out = append(out, top)
 		side := m.sidebar(g)
 		for y := 0; y < g.bodyHeight; y++ {
-			content := m.surface(foreground, background, "", g.diffWidth)
+			content := m.surface(foreground, "", g.diffWidth)
 			if m.offset+y < len(m.rows) {
 				content = m.renderRow(m.rows[m.offset+y], g.diffWidth)
 			}
@@ -73,15 +73,15 @@ func (m *Model) View() string {
 				content = m.emptyRow(y, g.diffWidth)
 			}
 			rail := m.scrollRail(y, g.bodyHeight, len(m.rows), m.offset, !m.fileFocus)
-			line := m.surface(border, background, "│", 1) + content + rail
+			line := m.surface(border, "│", 1) + content + rail
 			if g.sideWidth > 0 {
-				line = side[y] + m.surface(foreground, background, " ", 1) + line
+				line = side[y] + m.surface(foreground, " ", 1) + line
 			}
 			out = append(out, line)
 		}
 		bottom := m.panelEdge("", m.width-g.diffX, !m.fileFocus, false)
 		if g.sideWidth > 0 {
-			bottom = m.panelEdge("", g.sideWidth, m.fileFocus, false) + m.surface(foreground, background, " ", 1) + bottom
+			bottom = m.panelEdge("", g.sideWidth, m.fileFocus, false) + m.surface(foreground, " ", 1) + bottom
 		}
 		out = append(out, bottom)
 	}
@@ -110,7 +110,7 @@ func (m *Model) View() string {
 		percent := min(100, (m.offset+g.bodyHeight)*100/len(m.rows))
 		position = fmt.Sprintf(" %d%% ", percent)
 	}
-	out = append(out, m.surface(muted, background, fit(status, m.width-ansi.StringWidth(position))+position, m.width))
+	out = append(out, m.surface(muted, fit(status, m.width-ansi.StringWidth(position))+position, m.width))
 	out = append(out, m.controlRow(m.height-1, ""))
 	return strings.Join(out, "\n")
 }
@@ -132,10 +132,10 @@ func (m *Model) controlRow(y int, prefix string) string {
 	for _, button := range controls {
 		gap := button.x - x
 		if gap > 0 {
-			out.WriteString(m.surface(foreground, background, prefix, gap))
+			out.WriteString(m.surface(foreground, prefix, gap))
 			prefix = ""
 		}
-		label, fg, bg := button.label, muted, panel
+		label, fg := button.label, muted
 		if button.key == "/" && y == 2 {
 			label = " / Filter files…"
 			if m.filter != "" || m.filtering {
@@ -146,17 +146,17 @@ func (m *Model) controlRow(y int, prefix string) string {
 				label += fmt.Sprintf("  (%d matches)", len(m.visible))
 			}
 			if m.filtering {
-				fg, bg = accent, selection
+				fg = accent
 			}
 		}
 		if button.key == "?" || button.key == "v" {
 			fg = accent
 		}
-		out.WriteString(m.surface(fg, bg, label, button.width))
+		out.WriteString(m.surface(fg, label, button.width))
 		x = button.x + button.width
 	}
 	if x < m.width {
-		out.WriteString(m.surface(foreground, background, prefix, m.width-x))
+		out.WriteString(m.surface(foreground, prefix, m.width-x))
 	}
 	return out.String()
 }
@@ -175,7 +175,7 @@ func (m *Model) panelEdge(title string, width int, active, top bool) string {
 		title = ansi.Truncate(title, max(0, width-4), "…")
 		inside = "─" + m.bold(title) + strings.Repeat("─", max(0, width-3-ansi.StringWidth(title)))
 	}
-	return m.surface(color, background, left+inside+right, width)
+	return m.surface(color, left+inside+right, width)
 }
 
 func (m *Model) scrollRail(y, height, total, offset int, active bool) string {
@@ -190,7 +190,7 @@ func (m *Model) scrollRail(y, height, total, offset int, active bool) string {
 			}
 		}
 	}
-	return m.surface(color, background, glyph, 1)
+	return m.surface(color, glyph, 1)
 }
 
 func (m *Model) sidebar(g geometry) []string {
@@ -209,15 +209,18 @@ func (m *Model) sidebar(g geometry) []string {
 		if m.viewed[file.Path] {
 			box = m.ink(green, "[✓]")
 		}
-		bg := panel
 		if index == m.selected {
-			cursor, bg = m.ink(accent, "›"), selection
+			cursor = m.ink(accent, "›")
 		}
-		name := cursor + m.ink(accent, fold) + " " + box + " " + safeText(path.Base(file.Path))
+		baseName := safeText(path.Base(file.Path))
+		if index == m.selected {
+			baseName = m.ink(accent, baseName)
+		}
+		name := cursor + m.ink(accent, fold) + " " + box + " " + baseName
 		if index == m.selected {
 			name = m.bold(name)
 		}
-		result = append(result, m.surface(foreground, bg, name, width))
+		result = append(result, m.surface(foreground, name, width))
 		directory := path.Dir(file.Path)
 		if directory == "." {
 			directory = "root"
@@ -227,19 +230,39 @@ func (m *Model) sidebar(g geometry) []string {
 			stats = m.ink(muted, "binary")
 		}
 		detail := fit("       "+safeText(directory), max(0, width-ansi.StringWidth(stats)-1)) + stats + " "
-		result = append(result, m.surface(muted, bg, detail, width))
+		result = append(result, m.surface(muted, detail, width))
 	}
 	for len(result) < g.bodyHeight {
-		result = append(result, m.surface(foreground, panel, "", width))
+		result = append(result, m.surface(foreground, "", width))
 	}
 	for y := range result {
 		rail := m.scrollRail(y, g.bodyHeight, len(m.visible)*2, m.sideOffset*2, m.fileFocus)
-		result[y] = m.surface(border, background, "│", 1) + result[y] + rail
+		result[y] = m.surface(border, "│", 1) + result[y] + rail
 	}
 	return result
 }
 
 func (m *Model) renderRow(row row, width int) string {
+	// Reserve the same frame columns for every file so selection never shifts
+	// code, line numbers, or the Viewed button. The existing spacer closes it.
+	contentWidth := width - 2*fileFrameInset
+	if row.file != m.selected {
+		padding := m.surface(foreground, " ", fileFrameInset)
+		return padding + m.renderRowContent(row, contentWidth) + padding
+	}
+	if row.kind == 's' {
+		return m.surface(accent, "┗"+strings.Repeat("━", contentWidth)+"┛", width)
+	}
+	left, right := "┃", "┃"
+	if row.kind == 'f' {
+		left, right = "┏", "┓"
+	}
+	return m.surface(accent, left, fileFrameInset) +
+		m.renderRowContent(row, contentWidth) +
+		m.surface(accent, right, fileFrameInset)
+}
+
+func (m *Model) renderRowContent(row row, width int) string {
 	file := m.comparison.Files[row.file]
 	switch row.kind {
 	case 'f':
@@ -259,12 +282,15 @@ func (m *Model) renderRow(row row, width int) string {
 			stats = m.ink(muted, "binary")
 		}
 		right := " " + m.ink(muted, file.Status) + " " + stats + " " + fit(box, viewedButtonWidth)
+		if row.file == m.selected {
+			name = m.ink(accent, name)
+		}
 		left := " " + m.ink(accent, fold) + " " + m.bold(name)
-		return m.surface(foreground, raised, fit(left, max(1, width-ansi.StringWidth(right)))+right, width)
+		return m.surface(foreground, fit(left, max(1, width-ansi.StringWidth(right)))+right, width)
 	case 'h':
-		return m.surface(muted, panel, " "+safeText(row.text), width)
+		return m.surface(muted, " "+safeText(row.text), width)
 	case 'm':
-		return m.surface(muted, background, "   "+safeText(row.text), width)
+		return m.surface(muted, "   "+safeText(row.text), width)
 	case 'l':
 		line := file.Hunks[row.hunk].Lines[row.line]
 		key := highlightKey{file: row.file, hunk: row.hunk}
@@ -280,19 +306,19 @@ func (m *Model) renderRow(row row, width int) string {
 		if line.New > 0 {
 			newNumber = fmt.Sprint(line.New)
 		}
-		bg, signColor := background, muted
+		signColor := muted
 		if line.Kind == '+' {
-			bg, signColor = addedBackground, green
+			signColor = green
 		}
 		if line.Kind == '-' {
-			bg, signColor = deletedBackground, red
+			signColor = red
 		}
-		gutter := m.ink(muted, fmt.Sprintf("%4s %4s ", oldNumber, newNumber)) + m.ink(signColor, string(line.Kind)) + m.ink(border, " │ ")
+		gutter := m.ink(signColor, fmt.Sprintf("%4s %4s %c │ ", oldNumber, newNumber, line.Kind))
 		available := max(0, width-ansi.StringWidth(gutter))
 		code = ansi.Cut(code, m.xOffset, m.xOffset+available)
-		return m.surface(foreground, bg, gutter+fit(code, available), width)
+		return m.surface(foreground, gutter+fit(code, available), width)
 	}
-	return m.surface(foreground, background, "", width)
+	return m.surface(foreground, "", width)
 }
 
 func (m *Model) emptyRow(y, width int) string {
@@ -312,7 +338,7 @@ func (m *Model) emptyRow(y, width int) string {
 		}
 	}
 	text = strings.Repeat(" ", max(0, (width-ansi.StringWidth(text))/2)) + text
-	return m.surface(muted, background, text, width)
+	return m.surface(muted, text, width)
 }
 
 func (m *Model) helpLines() []string {
@@ -360,7 +386,7 @@ func (m *Model) helpView(height int) []string {
 		if start+i < len(lines) {
 			line = lines[start+i]
 		}
-		result[i] = m.surface(foreground, background, line, m.width)
+		result[i] = m.surface(foreground, line, m.width)
 	}
 	return result
 }

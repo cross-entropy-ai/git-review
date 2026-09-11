@@ -5,6 +5,7 @@ import "github.com/charmbracelet/x/ansi"
 const (
 	contentTop        = 4
 	viewedButtonWidth = 12
+	fileFrameInset    = 1
 )
 
 // Geometry is shared by rendering and mouse hit testing, including narrow views.

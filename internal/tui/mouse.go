@@ -106,7 +106,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		m.selected, m.fileFocus = row.file, false
 		m.ensureSelectedVisible()
 		if row.kind == 'f' {
-			if msg.X-g.diffX-1 >= g.diffWidth-viewedButtonWidth {
+			x := msg.X - g.diffX - 1
+			buttonEnd := g.diffWidth - fileFrameInset
+			if x >= buttonEnd-viewedButtonWidth && x < buttonEnd {
 				m.toggleViewed(false)
 			} else {
 				m.toggleFold()
