@@ -6,6 +6,7 @@ const (
 	contentTop        = 4
 	viewedButtonWidth = 12
 	fileFrameInset    = 1
+	rightInset        = 1
 )
 
 // Geometry is shared by rendering and mouse hit testing, including narrow views.
@@ -38,7 +39,7 @@ func (c control) contains(x, y int) bool {
 func (m *Model) controls() []control {
 	var controls []control
 	right := func(y int, buttons ...control) {
-		x := m.width - 1
+		x := m.width - rightInset
 		for i := len(buttons) - 1; i >= 0; i-- {
 			button := buttons[i]
 			button.width = ansi.StringWidth(button.label)
@@ -66,7 +67,7 @@ func (m *Model) controls() []control {
 		{label: " v Viewed ", key: "v"},
 		{label: " / Filter ", key: "/"},
 	}
-	footerLimit := m.width - 1
+	footerLimit := m.width - rightInset
 	if m.help {
 		buttons = []control{{label: " Esc Close help ", key: "esc"}}
 	} else if m.filtering {

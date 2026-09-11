@@ -47,7 +47,7 @@ func (m *Model) View() string {
 	if m.width >= 90 {
 		left = "  " + branches + m.ink(m.palette.border, "  │  ") + stats
 	}
-	out = append(out, m.surface(m.palette.foreground, fit(left, m.width-ansi.StringWidth(progress))+progress, m.width))
+	out = append(out, m.surface(m.palette.foreground, fit(left, m.width-rightInset-ansi.StringWidth(progress))+progress, m.width))
 	out = append(out, m.controlRow(2, ""))
 
 	if m.help {
@@ -113,7 +113,7 @@ func (m *Model) View() string {
 		percent := min(100, (m.offset+g.bodyHeight)*100/len(m.rows))
 		position = fmt.Sprintf(" %d%% ", percent)
 	}
-	out = append(out, m.surface(m.palette.muted, fit(status, m.width-ansi.StringWidth(position))+position, m.width))
+	out = append(out, m.surface(m.palette.muted, fit(status, m.width-rightInset-ansi.StringWidth(position))+position, m.width))
 	out = append(out, m.controlRow(m.height-1, ""))
 	return strings.Join(out, "\n")
 }
