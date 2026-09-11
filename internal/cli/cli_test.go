@@ -22,6 +22,9 @@ func TestArguments(t *testing.T) {
 		{[]string{"--unknown"}, 2, "flag provided but not defined"},
 		{[]string{"--context", "-1"}, 2, "between 0 and 100"},
 		{[]string{"--theme", "sepia"}, 2, "--theme must be auto, light, or dark"},
+		{[]string{"-w", "main"}, 2, "cannot be combined"},
+		{[]string{"--working-tree", "--base", "main"}, 2, "cannot be combined"},
+		{[]string{"-w", "--head", "HEAD"}, 2, "cannot be combined"},
 		{[]string{"--base", "main", "master"}, 2, "not both"},
 		{[]string{"one", "two", "three"}, 2, "at most two refs"},
 		{nil, 1, "interactive terminal"},
@@ -89,5 +92,21 @@ func TestStatsWithRealRepository(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".git", "git-review")); !os.IsNotExist(err) {
 		t.Fatal("--stat wrote review state")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("new file\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, option := range []string{"-w", "--working-tree"} {
+		out.Reset()
+		errOut.Reset()
+		if code := Run([]string{option, "--stat", "-C", dir}, &out, &errOut, "test"); code != 0 {
+			t.Fatalf("%s: code %d: %s", option, code, errOut.String())
+		}
+		if !strings.Contains(out.String(), `"HEAD" -> "working tree"`) || !strings.Contains(out.String(), "1 files changed, 1 insertions(+), 0 deletions(-)") || !strings.Contains(out.String(), "untracked.txt") {
+			t.Fatalf("%s: unexpected working-tree statistics: %s", option, out.String())
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git", "git-review")); !os.IsNotExist(err) {
+		t.Fatal("working-tree --stat wrote review state")
 	}
 }

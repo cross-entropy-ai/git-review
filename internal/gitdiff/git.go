@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -28,10 +29,16 @@ func (b *boundedBuffer) Write(p []byte) (int, error) {
 }
 
 func run(ctx context.Context, dir string, args ...string) (string, error) {
+	return runWithEnv(ctx, dir, nil, nil, args...)
+}
+
+func runWithEnv(ctx context.Context, dir string, env []string, input io.Reader, args ...string) (string, error) {
 	prefix := []string{"--no-pager", "--literal-pathspecs", "-c", "color.ui=false", "-c", "core.quotePath=false", "-c", "diff.suppressBlankEmpty=false"}
 	cmd := exec.CommandContext(ctx, "git", append(prefix, args...)...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "LC_ALL=C", "GIT_OPTIONAL_LOCKS=0")
+	cmd.Env = append(cmd.Env, env...)
+	cmd.Stdin = input
 	var stdout boundedBuffer
 	var stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -51,12 +58,15 @@ func run(ctx context.Context, dir string, args ...string) (string, error) {
 	return stdout.String(), nil
 }
 
-// Load compares merge-base(base, head) with head, matching git diff base...head.
+// Load compares merge-base(base, head) with head, or snapshots the working tree.
 func Load(parent context.Context, opts Options) (*Comparison, error) {
 	ctx, cancel := context.WithTimeout(parent, 45*time.Second)
 	defer cancel()
 	if opts.Context < 0 || opts.Context > 100 {
 		return nil, errors.New("context must be between 0 and 100")
+	}
+	if opts.WorkingTree && (opts.Base != "" || (opts.Head != "" && opts.Head != "HEAD")) {
+		return nil, errors.New("working-tree review compares against HEAD; base and head refs are not supported")
 	}
 	root, err := run(ctx, opts.Dir, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -68,6 +78,9 @@ func Load(parent context.Context, opts Options) (*Comparison, error) {
 		return nil, err
 	}
 	c := &Comparison{Root: root, GitDir: strings.TrimSuffix(gitDir, "\n"), Base: opts.Base, Head: opts.Head}
+	if opts.WorkingTree {
+		return loadWorkingTree(ctx, c, opts.Context)
+	}
 	if c.Head == "" {
 		c.Head = "HEAD"
 	}
@@ -106,13 +119,19 @@ func Load(parent context.Context, opts Options) (*Comparison, error) {
 			c.Head = strings.TrimSpace(branch)
 		}
 	}
+	return loadDiff(c, opts.Context, func(args ...string) (string, error) {
+		return run(ctx, root, args...)
+	})
+}
+
+func loadDiff(c *Comparison, contextLines int, git func(...string) (string, error)) (*Comparison, error) {
 	// Every command uses resolved OIDs and identical ordering/rename settings.
 	// External diff and textconv helpers are intentionally disabled.
 	diffArgs := []string{"diff", "--no-ext-diff", "--no-textconv", "--no-color", "--find-renames", "--ignore-submodules=none", "--submodule=short", "--diff-algorithm=histogram", "--no-relative", "--src-prefix=a/", "--dst-prefix=b/", "--output-indicator-new=+", "--output-indicator-old=-", "--output-indicator-context= "}
 	diff := func(format ...string) (string, error) {
 		args := append(append([]string{}, diffArgs...), format...)
 		args = append(args, c.MergeBase, c.HeadOID, "--")
-		return run(ctx, root, args...)
+		return git(args...)
 	}
 	raw, err := diff("--raw", "-z", "--no-abbrev")
 	if err != nil {
@@ -132,7 +151,7 @@ func Load(parent context.Context, opts Options) (*Comparison, error) {
 	if err := applyNumstat(c.Files, stats); err != nil {
 		return nil, err
 	}
-	patch, err := diff("--patch", "--unified="+strconv.Itoa(opts.Context))
+	patch, err := diff("--patch", "--unified="+strconv.Itoa(contextLines))
 	if err != nil {
 		return nil, fmt.Errorf("read patch: %w", err)
 	}

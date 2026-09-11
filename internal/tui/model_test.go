@@ -277,3 +277,32 @@ func TestBatchedKeystrokesAndBracketedPaste(t *testing.T) {
 		t.Fatal("bracketed paste did not populate the filter")
 	}
 }
+
+func TestWorkingTreeRefreshInvalidatesViewedSnapshot(t *testing.T) {
+	for _, persist := range []bool{false, true} {
+		m := sampleModel(false)
+		m.persist = persist
+		first := *m.comparison
+		first.WorkingTree, first.GitDir = true, t.TempDir()
+		first.Base, first.Head = "HEAD", "working tree"
+		first.MergeBase, first.HeadOID = "head-commit", "first-content-tree"
+		m.install(&first)
+		press(m, "v")
+		m.Update(loadedMsg{comparison: &first})
+		if !m.viewed["main.go"] {
+			t.Fatal("refreshing unchanged working-tree content lost progress")
+		}
+		second := first
+		second.HeadOID = "edited-content-tree"
+		m.Update(loadedMsg{comparison: &second})
+		if m.viewedCount() != 0 || m.collapsed["main.go"] {
+			t.Fatal("changed working-tree snapshot retained stale viewed progress")
+		}
+		if persist {
+			m.Update(loadedMsg{comparison: &first})
+			if !m.viewed["main.go"] {
+				t.Fatal("reopening the exact working-tree snapshot did not restore progress")
+			}
+		}
+	}
+}

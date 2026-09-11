@@ -350,6 +350,9 @@ func (m *Model) emptyRow(y, width int) string {
 		text = "Press Esc to clear the filter."
 		if len(m.comparison.Files) == 0 {
 			text = "Your branch matches its merge base."
+			if m.comparison.WorkingTree {
+				text = "Your working tree matches HEAD."
+			}
 		}
 	}
 	text = strings.Repeat(" ", max(0, (width-ansi.StringWidth(text))/2)) + text
@@ -396,6 +399,9 @@ func (m *Model) helpLines() []string {
 	}
 	if !m.persist {
 		lines[len(lines)-2] = "  Viewed progress is stored in memory only (--no-state)."
+	}
+	if m.comparison.WorkingTree {
+		lines[len(lines)-1] = "  Staged, unstaged, and untracked files are included; r refreshes."
 	}
 	return lines
 }

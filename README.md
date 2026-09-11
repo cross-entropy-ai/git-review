@@ -1,6 +1,6 @@
 # git review
 
-A local, pull-request-style review TUI written in Go. Browse all committed changes on a branch with a file sidebar, total and per-file additions/deletions, line numbers, syntax highlighting, folding, and saved viewed progress. Use the keyboard or mouse in an interface with bordered panes, review progress, and clickable controls.
+A local, pull-request-style review TUI written in Go. Browse committed branch changes or use `-w` to review all uncommitted changes against HEAD, with a file sidebar, total and per-file additions/deletions, line numbers, syntax highlighting, folding, and saved viewed progress. Use the keyboard or mouse in an interface with bordered panes, review progress, and clickable controls.
 
 The selected file is outlined in blue in the diff pane, with a bold blue file name. File headers have a contrasting neutral background; the selected sidebar entry and diff header use a blue background. Code and other areas preserve your terminal background, using colored line numbers and signs for additions and deletions while retaining syntax highlighting. The outline follows keyboard and mouse selection and remains visible when the file is folded or its header has scrolled out of view.
 
@@ -35,6 +35,8 @@ just build                         # Build ./git-review with CGO disabled
 ./git-review --base develop
 ./git-review --base main --head feature/login
 ./git-review main feature/login    # Put options before positional refs
+./git-review -w                     # Staged, unstaged, and untracked files vs HEAD
+./git-review --working-tree --stat  # The same comparison as plain statistics
 ./git-review --context 8
 ./git-review --theme light         # Override automatic terminal theme detection
 ./git-review --theme dark
@@ -107,12 +109,22 @@ With tree focus (`Tab`), use `j` / `k` or `↑` / `↓` to navigate entries. `�
 
 Directory folding only affects the sidebar. Switching views preserves the current diff position, file folds, filter, and viewed progress; directory expansion is kept for the current session. `n` / `p` continue navigating files in diff order and reveal their ancestors automatically. Filtering shows matching paths and their ancestors with directories expanded; clear it with `Esc` to fold directories again.
 
+## Working-tree review
+
+Use `git review -w` (equivalent to `--working-tree`) to compare HEAD with the current working tree. It includes staged changes, unstaged changes, and untracked new files, while respecting Git ignore rules. Already tracked files remain included even if they match an ignore rule. Empty files, binary files, deletions, and renames are handled by the same diff viewer.
+
+For partially staged files, the final on-disk content is compared with HEAD; intermediate staged versions are not separate changes. This mode needs an existing HEAD commit and cannot be combined with base/head refs. The default command continues to review committed branch changes.
+
+Press `r` to capture current changes again. Progress uses the existing exact-snapshot model: unchanged content restores progress, while a content or HEAD change starts a fresh review for the entire comparison. Staging the same content alone does not reset progress. Source files, the real index, objects, branches, and commits are not modified; the temporary index and object store are removed after loading. Only viewed progress is saved in `.git/git-review/` unless `--no-state` is used.
+
+Git's text normalization and ignore rules apply, but hooks, clean/process filters, external diff, and textconv commands are not run. Filter-managed files therefore show their local content. Submodule commit-pointer changes are included; review uncommitted contents inside a submodule with `git review -w -C path/to/submodule`.
+
 ## Comparison and progress semantics
 
-- Compares `merge-base(base, head)` to `head`, matching `git diff base...head`. Commits added only to the base branch do not appear as deletions in the reviewed branch.
-- **Only committed changes are included.** Working-tree changes, staged changes, and untracked files are excluded. Source files, the index, branches, and commits remain untouched.
+- By default, compares `merge-base(base, head)` to `head`, matching `git diff base...head`. Commits added only to the base branch do not appear as deletions in the reviewed branch.
+- **The default mode includes only committed changes.** Use `-w` to include staged, unstaged, and untracked files against HEAD. Source files, the index, branches, and commits remain untouched.
 - Refs are resolved to commit IDs before metadata, statistics, and patches are read, keeping each loaded comparison consistent if a branch moves during loading.
-- Viewed progress is saved under the current worktree's Git directory at `git-review/<snapshot>.json`, keyed by merge-base and head commit. Reopening the same comparison restores progress; changing either snapshot endpoint starts a fresh review so new changes are not marked viewed accidentally.
+- Viewed progress is saved under the current worktree's Git directory at `git-review/<snapshot>.json`, keyed by merge-base and head commit, or by HEAD and the captured content tree in working-tree mode. Reopening the same comparison restores progress; changing either snapshot endpoint starts a fresh review so new changes are not marked viewed accidentally.
 - Ordinary folding lasts for the session. `--no-state` disables progress-file reads and writes, including for read-only repositories. Save failures appear in the status line and do not prevent browsing.
 - Supports additions, deletions, modifications, renames, mode changes, symlinks, submodule pointers, and binary files. Binary files display `binary` and do not contribute to text-line totals.
 - NUL-delimited Git metadata preserves filenames containing spaces, tabs, newlines, and Unicode. Terminal control characters are escaped for display. External diff and textconv helpers are disabled.

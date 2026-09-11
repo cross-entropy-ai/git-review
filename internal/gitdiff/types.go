@@ -1,18 +1,19 @@
-// Package gitdiff reads a committed, merge-base comparison without changing Git state.
+// Package gitdiff reads branch and working-tree comparisons without changing Git state.
 package gitdiff
 
-// Comparison is an immutable snapshot of the two resolved revisions.
+// Comparison is an immutable snapshot of two revisions or HEAD and the working tree.
 type Comparison struct {
-	Root      string
-	GitDir    string
-	Base      string
-	Head      string
-	BaseOID   string
-	HeadOID   string
-	MergeBase string
-	Files     []File
-	Added     int
-	Deleted   int
+	Root        string
+	GitDir      string
+	Base        string
+	Head        string
+	BaseOID     string
+	HeadOID     string
+	MergeBase   string
+	Files       []File
+	Added       int
+	Deleted     int
+	WorkingTree bool
 }
 
 // File describes a changed path and its unified diff.
@@ -45,8 +46,9 @@ type Line struct {
 }
 
 type Options struct {
-	Dir     string
-	Base    string
-	Head    string
-	Context int
+	Dir         string
+	Base        string
+	Head        string
+	Context     int
+	WorkingTree bool
 }

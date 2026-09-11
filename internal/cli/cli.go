@@ -20,8 +20,10 @@ const usage = `Usage: git review [options] [base [head]]
 
 Review committed changes from merge-base(base, head) to head in a TUI.
 Default base: main, origin/main, master, then origin/master. Default head: HEAD.
+Use -w to review staged, unstaged, and untracked changes against HEAD instead.
 
 Options:
+  -w, --working-tree  Review all uncommitted changes against HEAD
   --base REF       Base branch, tag, or commit
   --head REF       Head branch, tag, or commit (default HEAD)
   --context N      Context lines per hunk, 0–100 (default 3)
@@ -36,7 +38,7 @@ Options:
 
 Keys: Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
 Mouse: click files, fold arrows, viewed boxes, and toolbar; scroll or drag rails.
-Only committed branch changes are included; the worktree and index are untouched.
+The worktree and index are untouched in both review modes.
 `
 
 func Run(args []string, stdout, stderr io.Writer, version string) int {
@@ -49,6 +51,8 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	flags.StringVar(&opts.Head, "head", "HEAD", "head ref")
 	flags.StringVar(&opts.Dir, "C", ".", "repository directory")
 	flags.IntVar(&opts.Context, "context", 3, "context lines")
+	flags.BoolVar(&opts.WorkingTree, "working-tree", false, "review all uncommitted changes against HEAD")
+	flags.BoolVar(&opts.WorkingTree, "w", false, "review all uncommitted changes against HEAD")
 	flags.BoolVar(&stat, "stat", false, "print statistics")
 	flags.StringVar(&theme, "theme", "auto", "color theme: auto, light, or dark")
 	flags.BoolVar(&noColor, "no-color", false, "disable colors")
@@ -75,6 +79,10 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		baseSet = baseSet || f.Name == "base"
 		headSet = headSet || f.Name == "head"
 	})
+	if opts.WorkingTree && (baseSet || headSet || flags.NArg() > 0) {
+		fmt.Fprintln(stderr, "git-review: --working-tree (-w) cannot be combined with base or head refs")
+		return 2
+	}
 	if flags.NArg() > 0 {
 		if baseSet {
 			fmt.Fprintln(stderr, "git-review: choose --base or a positional base, not both")
@@ -151,7 +159,11 @@ func displayPath(path string) string {
 }
 
 func printStats(out io.Writer, c *gitdiff.Comparison) {
-	fmt.Fprintf(out, "%s...%s\n\n", displayPath(c.Base), displayPath(c.Head))
+	separator := "..."
+	if c.WorkingTree {
+		separator = " -> "
+	}
+	fmt.Fprintf(out, "%s%s%s\n\n", displayPath(c.Base), separator, displayPath(c.Head))
 	for _, f := range c.Files {
 		path := displayPath(f.Path)
 		if f.OldPath != "" {
@@ -165,6 +177,10 @@ func printStats(out io.Writer, c *gitdiff.Comparison) {
 	}
 	fmt.Fprintf(out, "\n%d files changed, %d insertions(+), %d deletions(-)\n", len(c.Files), c.Added, c.Deleted)
 	if len(c.Files) == 0 {
-		fmt.Fprintln(out, "No committed changes to review.")
+		if c.WorkingTree {
+			fmt.Fprintln(out, "No uncommitted changes to review.")
+		} else {
+			fmt.Fprintln(out, "No committed changes to review.")
+		}
 	}
 }
