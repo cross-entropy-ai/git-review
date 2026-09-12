@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
@@ -17,11 +18,13 @@ import (
 )
 
 const usage = `Usage: git review [options] [base [head]]
+       git review [options] base...head
 
 At startup, review local changes when present, otherwise committed changes.
 Committed review compares merge-base(base, head) to head; refs need not be branches.
 Default base: main, origin/main, master, then origin/master. Default head: HEAD.
 Explicit base/head refs select committed review unless --auto is given.
+base...head is shorthand for two refs; both endpoints are required.
 
 Options:
   --auto              Choose local or committed changes at startup (default)
@@ -106,19 +109,39 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	default:
 		opts.Mode = gitdiff.ModeAuto
 	}
-	if flags.NArg() > 0 {
-		if baseSet {
-			fmt.Fprintln(stderr, "git-review: choose --base or a positional base, not both")
-			return 2
+	var rangeRef string
+	for _, ref := range flags.Args() {
+		if strings.Contains(ref, "...") {
+			rangeRef = ref
+			break
 		}
-		opts.Base = flags.Arg(0)
 	}
-	if flags.NArg() > 1 {
-		if headSet {
-			fmt.Fprintln(stderr, "git-review: choose --head or a positional head, not both")
+	if rangeRef != "" {
+		if flags.NArg() != 1 || baseSet || headSet {
+			fmt.Fprintln(stderr, "git-review: base...head cannot be combined with other refs or --base/--head")
 			return 2
 		}
-		opts.Head = flags.Arg(1)
+		base, head, _ := strings.Cut(rangeRef, "...")
+		if base == "" || head == "" || strings.Contains(head, "...") || strings.HasPrefix(head, ".") || strings.HasSuffix(base, ".") {
+			fmt.Fprintln(stderr, "git-review: expected base...head with exactly three dots and both refs")
+			return 2
+		}
+		opts.Base, opts.Head = base, head
+	} else {
+		if flags.NArg() > 0 {
+			if baseSet {
+				fmt.Fprintln(stderr, "git-review: choose --base or a positional base, not both")
+				return 2
+			}
+			opts.Base = flags.Arg(0)
+		}
+		if flags.NArg() > 1 {
+			if headSet {
+				fmt.Fprintln(stderr, "git-review: choose --head or a positional head, not both")
+				return 2
+			}
+			opts.Head = flags.Arg(1)
+		}
 	}
 	if opts.Context < 0 || opts.Context > 100 {
 		fmt.Fprintln(stderr, "git-review: --context must be between 0 and 100")

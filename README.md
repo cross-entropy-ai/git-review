@@ -99,10 +99,13 @@ A few useful variations:
 ```sh
 git review --base develop     # Review committed changes against a different base
 git review v1.0 HEAD          # Compare a tag and a commit ref
+git review v1.1.0...v1.2.0    # Shorthand for git review v1.1.0 v1.2.0
 git review -C /path/to/repo    # Review another repository
 git review --theme light      # Choose light or dark manually
 git review --stat             # Print a quick change summary
 ```
+
+The `base...head` shorthand requires both refs and cannot be combined with another positional ref, `--base`, or `--head`. It uses the same merge-base comparison as the two-ref form.
 
 ## A few keys go a long way
 

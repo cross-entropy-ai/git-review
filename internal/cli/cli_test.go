@@ -30,6 +30,16 @@ func TestArguments(t *testing.T) {
 		{[]string{"--working-tree", "--base", "main"}, 2, "cannot be combined"},
 		{[]string{"-w", "--head", "HEAD"}, 2, "cannot be combined"},
 		{[]string{"--base", "main", "master"}, 2, "not both"},
+		{[]string{"-w", "main...HEAD"}, 2, "cannot be combined"},
+		{[]string{"--base", "main", "main...HEAD"}, 2, "cannot be combined"},
+		{[]string{"--head", "HEAD", "main...HEAD"}, 2, "cannot be combined"},
+		{[]string{"main...HEAD", "HEAD"}, 2, "cannot be combined"},
+		{[]string{"main", "main...HEAD"}, 2, "cannot be combined"},
+		{[]string{"...HEAD"}, 2, "both refs"},
+		{[]string{"main..."}, 2, "both refs"},
+		{[]string{"..."}, 2, "both refs"},
+		{[]string{"main...HEAD...other"}, 2, "exactly three dots"},
+		{[]string{"main....HEAD"}, 2, "exactly three dots"},
 		{[]string{"one", "two", "three"}, 2, "at most two refs"},
 		{nil, 1, "interactive terminal"},
 	} {
@@ -124,9 +134,12 @@ func TestStatsWithRealRepository(t *testing.T) {
 		{[]string{"--base", "base-tag"}, false},
 		{[]string{"--head", "HEAD"}, false},
 		{[]string{"base-tag", "HEAD"}, false},
+		{[]string{"base-tag...HEAD"}, false},
+		{[]string{"-c", "base-tag...HEAD"}, false},
 		{[]string{"-c", "base-tag", "HEAD"}, false},
 		{[]string{"--auto", "--base", "base-tag"}, true},
 		{[]string{"--auto", "base-tag", "HEAD"}, true},
+		{[]string{"--auto", "base-tag...HEAD"}, true},
 	} {
 		out.Reset()
 		errOut.Reset()
@@ -159,4 +172,37 @@ func TestStatsWithRealRepository(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".git", "git-review")); !os.IsNotExist(err) {
 		t.Fatal("working-tree --stat wrote review state")
 	}
+	// Use divergent tags and a head other than HEAD to catch endpoint parsing
+	// mistakes and accidental two-dot (direct endpoint) diff semantics.
+	git("tag", "v1.2.0")
+	git("switch", "-q", "main")
+	writeAndCommit := func(name string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("not in the review\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		git("add", name)
+		git("commit", "-qm", name)
+	}
+	writeAndCommit("base-only.txt")
+	git("tag", "v1.1.0")
+	git("switch", "-q", "feature")
+	writeAndCommit("head-only.txt")
+	var expected string
+	for _, refs := range [][]string{{"v1.1.0", "v1.2.0"}, {"v1.1.0...v1.2.0"}} {
+		out.Reset()
+		errOut.Reset()
+		if code := Run(append([]string{"--stat", "-C", dir}, refs...), &out, &errOut, "test"); code != 0 {
+			t.Fatalf("%v: %s", refs, errOut.String())
+		}
+		if expected == "" {
+			expected = out.String()
+		}
+		if out.String() != expected || !strings.Contains(out.String(), `"v1.1.0"..."v1.2.0"`) ||
+			!strings.Contains(out.String(), "1 files changed, 2 insertions(+), 0 deletions(-)") ||
+			strings.Contains(out.String(), "base-only.txt") || strings.Contains(out.String(), "head-only.txt") {
+			t.Fatalf("%v: wrong tag comparison: %s", refs, out.String())
+		}
+	}
+
 }
