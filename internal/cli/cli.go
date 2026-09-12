@@ -18,13 +18,13 @@ import (
 
 const usage = `Usage: git review [options] [base [head]]
 
-Automatically review local changes when present, otherwise committed changes.
+At startup, review local changes when present, otherwise committed changes.
 Committed review compares merge-base(base, head) to head; refs need not be branches.
 Default base: main, origin/main, master, then origin/master. Default head: HEAD.
 Explicit base/head refs select committed review unless --auto is given.
 
 Options:
-  --auto              Choose local or committed changes automatically (default)
+  --auto              Choose local or committed changes at startup (default)
   -w, --working-tree   Review all uncommitted changes against HEAD
   -c, --committed      Review committed changes, even with local changes
   --base REF          Base branch, tag, or commit

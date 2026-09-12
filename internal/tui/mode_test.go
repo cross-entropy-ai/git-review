@@ -20,13 +20,22 @@ func TestModeControlVisibleAndClickable(t *testing.T) {
 			local bool
 			label string
 		}{
-			{gitdiff.ModeAuto, false, "Auto → Committed"},
-			{gitdiff.ModeAuto, true, "Auto → Working tree"},
+			{gitdiff.ModeAuto, false, "Committed"},
+			{gitdiff.ModeAuto, true, "Working tree"},
 			{gitdiff.ModeWorkingTree, true, "Working tree"},
 			{gitdiff.ModeCommitted, false, "Committed"},
 		} {
 			m := sampleModel(true)
-			m.width, m.options.Mode, m.comparison.WorkingTree = width, test.mode, test.local
+			m.options.Mode, m.comparison.WorkingTree = test.mode, test.local
+			m = New(m.comparison, m.options, true, false, DarkTheme)
+			m.width = width
+			resolved := gitdiff.ModeCommitted
+			if test.local {
+				resolved = gitdiff.ModeWorkingTree
+			}
+			if m.options.Mode != resolved || strings.Contains(m.View(), "Auto") {
+				t.Fatal("startup did not resolve auto to an actual review mode")
+			}
 			m.comparison.Root = "/a/very-long-repository-name-that-must-not-hide-the-mode"
 			lines := strings.Split(m.View(), "\n")
 			header := ansi.Strip(lines[0])
@@ -44,7 +53,7 @@ func TestModeControlVisibleAndClickable(t *testing.T) {
 			if cmd == nil || !m.loading {
 				t.Fatal("clicking the visible mode control did not start loading")
 			}
-			if m.options.Mode != test.mode {
+			if m.options.Mode != resolved {
 				t.Fatal("mode changed before the comparison finished loading")
 			}
 			if _, again := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")}); again != nil {
@@ -85,7 +94,7 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 	head := git("rev-parse", "HEAD")
 	git("switch", "-q", "main")
 	write("local.txt")
-	opts := gitdiff.Options{Dir: dir, Base: "base-tag", Head: head, Mode: gitdiff.ModeCommitted, Context: 3}
+	opts := gitdiff.Options{Dir: dir, Base: "base-tag", Head: head, Mode: gitdiff.ModeAuto, Context: 3}
 	c, err := gitdiff.Load(context.Background(), opts)
 	if err != nil {
 		t.Fatal(err)
@@ -111,17 +120,25 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 			t.Fatalf("want %s / %s, got %s / %+v", mode, path, m.options.Mode, m.comparison.Files)
 		}
 	}
-	load("m")
-	check(gitdiff.ModeAuto, "local.txt")
+	check(gitdiff.ModeWorkingTree, "local.txt")
 	if err := os.Remove(filepath.Join(dir, "local.txt")); err != nil {
 		t.Fatal(err)
 	}
 	load("r")
-	check(gitdiff.ModeAuto, "committed.txt")
-	if m.comparison.WorkingTree || !strings.Contains(m.modeLabel(), "Auto → Committed") {
-		t.Fatal("auto refresh did not update the displayed scope")
+	if m.options.Mode != gitdiff.ModeWorkingTree || !m.comparison.WorkingTree || len(m.comparison.Files) != 0 {
+		t.Fatal("refresh changed scope after local changes disappeared")
 	}
+
+	// A fresh auto session on a clean checkout starts and stays committed.
+	c, err = gitdiff.Load(context.Background(), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = New(c, opts, false, false, DarkTheme)
+	check(gitdiff.ModeCommitted, "committed.txt")
 	write("local.txt")
+	load("r")
+	check(gitdiff.ModeCommitted, "committed.txt")
 	load("m")
 	check(gitdiff.ModeWorkingTree, "local.txt")
 	load("r")
@@ -130,7 +147,6 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 	check(gitdiff.ModeCommitted, "committed.txt")
 
 	// A failed switch must leave the current diff and mode consistent.
-	load("m")
 	load("m")
 	m.options.Base = "missing-ref"
 	previous := m.comparison

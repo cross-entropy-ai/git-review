@@ -63,6 +63,13 @@ type Model struct {
 }
 
 func New(c *gitdiff.Comparison, opts gitdiff.Options, color, persist bool, theme Theme) *Model {
+	// Auto is a startup choice; refreshes and toggles use the resolved scope.
+	if opts.Mode == gitdiff.ModeAuto {
+		opts.Mode = gitdiff.ModeCommitted
+		if c.WorkingTree {
+			opts.Mode = gitdiff.ModeWorkingTree
+		}
+	}
 	m := &Model{comparison: c, options: opts, color: color, persist: persist, palette: paletteFor(theme), width: 100, height: 30, treeClosed: make(map[string]bool)}
 	m.install(c)
 	return m
@@ -265,13 +272,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveHunk(-1)
 		case "m":
 			opts := m.options
-			switch opts.Mode {
-			case gitdiff.ModeAuto:
-				opts.Mode = gitdiff.ModeWorkingTree
-			case gitdiff.ModeWorkingTree:
+			if opts.Mode == gitdiff.ModeWorkingTree {
 				opts.Mode = gitdiff.ModeCommitted
-			default:
-				opts.Mode = gitdiff.ModeAuto
+			} else {
+				opts.Mode = gitdiff.ModeWorkingTree
 			}
 			return m, m.reload(opts)
 		case "r":
@@ -300,26 +304,14 @@ func (m *Model) reload(opts gitdiff.Options) tea.Cmd {
 }
 
 func modeName(mode gitdiff.Mode) string {
-	switch mode {
-	case gitdiff.ModeWorkingTree:
+	if mode == gitdiff.ModeWorkingTree {
 		return "Working tree"
-	case gitdiff.ModeCommitted:
-		return "Committed"
-	default:
-		return "Auto"
 	}
+	return "Committed"
 }
 
 func (m *Model) modeLabel() string {
-	label := modeName(m.options.Mode)
-	if m.options.Mode == gitdiff.ModeAuto {
-		actual := gitdiff.ModeCommitted
-		if m.comparison.WorkingTree {
-			actual = gitdiff.ModeWorkingTree
-		}
-		label += " → " + modeName(actual)
-	}
-	return " m Mode: " + label + " "
+	return " m Mode: " + modeName(m.options.Mode) + " "
 }
 
 func (m *Model) bodyHeight() int { return max(1, m.height-7) }

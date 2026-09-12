@@ -401,7 +401,7 @@ func (m *Model) helpLines() []string {
 		"  g / G            Top / bottom (also Home / End)",
 		"  [ / ]            Previous / next hunk",
 		"  h / l · ← / →    Horizontal scroll; 0 resets",
-		"  m                Cycle review mode: Auto → Working tree → Committed",
+		"  m                Toggle review mode: Working tree / Committed",
 		"  r                Reload review scope and diff",
 		"  ?                Toggle help",
 		"  q / Ctrl+C       Quit (q closes help first)", "",

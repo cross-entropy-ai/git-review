@@ -92,7 +92,7 @@ git review -w                # --working-tree: staged, unstaged, and untracked c
 git review -c                # --committed: committed changes, even with local edits
 ```
 
-Committed review compares `merge-base(base, head)` to `head`. Both refs can be branches, tags, or commit IDs. Passing refs selects committed review; add `--auto` to use them only as the fallback when there are no local changes. The three mode flags are mutually exclusive. The highlighted Mode control at the top shows the selected mode and, in Auto, the actual review scope. Click it or press `m` to cycle Auto → Working tree → Committed; your base/head refs are preserved.
+Committed review compares `merge-base(base, head)` to `head`. Both refs can be branches, tags, or commit IDs. Passing refs selects committed review; add `--auto` to use them only as the fallback when there are no local changes. The three mode flags are mutually exclusive. Auto only selects the initial scope at startup. The highlighted Mode control shows Working tree or Committed. Click it or press `m` to toggle between them; your base/head refs are preserved.
 
 A few useful variations:
 
@@ -116,7 +116,7 @@ git review --stat             # Print a quick change summary
 | `v` | Mark viewed, fold, and move on |
 | `/` | Find files by path |
 | `Tab` | Switch between the sidebar and diff |
-| `m` | Cycle Auto / Working tree / Committed |
+| `m` | Toggle Working tree / Committed |
 | `r` | Refresh the review |
 | `?` / `q` | Help / quit |
 
@@ -124,7 +124,7 @@ Prefer the mouse? Click a file to jump to it, click its checkbox to mark it view
 
 ## Good to know
 
-- Auto mode checks staged, unstaged, and untracked changes, respecting Git ignore rules. `-w` / `--working-tree` shows current on-disk changes against `HEAD`; a clean worktree stays in this mode with an empty diff. `-c` / `--committed` always shows committed changes. Auto mode checks the scope again when you refresh with `r`.
+- Auto mode checks staged, unstaged, and untracked changes, respecting Git ignore rules. `-w` / `--working-tree` shows current on-disk changes against `HEAD`; a clean worktree stays in this mode with an empty diff. `-c` / `--committed` always shows committed changes. Refreshing with `r` keeps the current scope, even if local changes appear or disappear.
 - Your files and staging area stay as they are. Viewed progress is saved locally under `.git/git-review/`; use `--no-state` for a session without saved progress.
 - Progress belongs to an exact comparison. Refreshing changed content starts a fresh review for the whole comparison; unchanged content keeps its viewed marks.
 - Use a terminal at least 90 columns wide for the sidebar. `--no-mouse` restores native terminal text selection; `--no-color` disables colors.
