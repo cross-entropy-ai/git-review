@@ -12,6 +12,7 @@ import time
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "docs" / "demo.cast"
+COLUMNS, ROWS = 192, 48
 
 
 def record_demo():
@@ -69,7 +70,7 @@ def record_demo():
             keys("Enter")
 
         try:
-            tmux("new-session", "-d", "-x", "110", "-y", "32", "-c", str(repo),
+            tmux("new-session", "-d", "-x", str(COLUMNS), "-y", str(ROWS), "-c", str(repo),
                  "-s", "demo", "/bin/bash", "--noprofile", "--rcfile", str(shell_config))
             tmux("set-option", "-t", "demo", "status-position", "top")
             tmux("set-option", "-t", "demo", "status-style", "bg=#233e5a,fg=#e1e7ef")
@@ -79,7 +80,7 @@ def record_demo():
             attach = shlex.join(["tmux", "-S", socket, "attach-session", "-t", "demo"])
             recorder = subprocess.Popen([
                 "asciinema", "rec", "--headless", "--quiet", "--overwrite",
-                "--output-format", "asciicast-v2", "--window-size", "110x32",
+                "--output-format", "asciicast-v2", "--window-size", f"{COLUMNS}x{ROWS}",
                 "--capture-env", "TERM", "--idle-time-limit", "3",
                 "--title", "git review — Review your branch. Keep your place.",
                 "--command", attach, str(OUTPUT)], env=env)
@@ -93,7 +94,18 @@ def record_demo():
             caption("Open the change that matters.  [n / Space]")
             keys("n", "n", "n", "n", "n", "Space")
             wait_for("package server")
-            time.sleep(3.5)
+            caption("Read the change inline: additions and deletions in one flow.")
+            time.sleep(3)
+            caption("Compare old and new side by side.  [s Split]")
+            keys("s")
+            wait_for("DIFF · SPLIT")
+            wait_for("func Handler")
+            time.sleep(5)
+            caption("Back to inline with one key. Your place stays put.  [s Inline]")
+            keys("s")
+            wait_for("s Split")
+            wait_for("package server")
+            time.sleep(3)
             caption("Keep your place. Mark files viewed as you go.  [v]")
             keys("v")
             time.sleep(1.5)
@@ -132,14 +144,25 @@ def record_demo():
                 'func Ready(w http.ResponseWriter, r *http.Request) {\n'
                 '\tw.Header().Set("Content-Type", "application/json")\n'
                 '\tw.Write([]byte(`{"ready":true}`))\n}\n')
-            caption("Before you commit: include the new files, too.  [-w]")
+            caption("Local edits? git review automatically opens Working tree.")
             command("git status --short")
             time.sleep(1.5)
-            command("git review -w")
+            command("git review")
+            wait_for("Mode: Working tree")
             wait_for("0/2 viewed")
             keys("t", "n")
             wait_for("func Ready")
-            time.sleep(4)
+            time.sleep(3)
+            caption("Switch to committed changes without leaving the review.  [m]")
+            keys("m")
+            wait_for("Mode: Committed")
+            wait_for("4/8 viewed")
+            time.sleep(2.5)
+            caption("Back to local changes, including untracked files.  [m]")
+            keys("m")
+            wait_for("Mode: Working tree")
+            wait_for("0/2 viewed")
+            time.sleep(2.5)
             caption("A focused review. One binary.  git review")
             time.sleep(2)
             keys("q")

@@ -54,11 +54,11 @@ record-demo: build
 
 # Render the recording as an animated README preview (requires agg).
 demo-gif:
-    {{agg}} --quiet --font-size 14 --line-height 1.3 --theme github-dark --fps-cap 12 --idle-time-limit 3 --select 3..33 --last-frame-duration 1 docs/demo.cast docs/demo.gif
+    {{agg}} --quiet --font-size 18 --line-height 1.25 --theme github-dark --fps-cap 12 --idle-time-limit 3 --select 3.. --last-frame-duration 1 docs/demo.cast docs/demo.gif
 
 # Publish the checked recording to asciinema.org.
 upload-demo:
-    asciinema upload --server-url https://asciinema.org --visibility public --title 'git review — Review your branch. Keep your place.' --description 'A local PR-style review experience for your terminal. Browse a branch, switch to a file tree, mark files viewed, resume a review, and include untracked files with git review -w. https://github.com/cross-entropy-ai/git-review' docs/demo.cast
+    asciinema upload --server-url https://asciinema.org --visibility public --title 'git review — Review your branch. Keep your place.' --description 'A local PR-style review experience for your terminal. Compare inline and split diffs, browse a file tree, resume viewed progress, and toggle between committed and local changes. https://github.com/cross-entropy-ai/git-review' docs/demo.cast
 
 # Install to a chosen directory; default is the user's local bin.
 [positional-arguments]

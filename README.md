@@ -4,11 +4,11 @@
 
 A pull-request-style review experience, right in your terminal. Browse the whole branch, read highlighted diffs, and check off files as you go.
 
-[![Watch git review in action](docs/demo.gif)](https://asciinema.org/a/1265196)
+[![Watch git review in action](docs/demo.gif)](docs/demo.gif)
 
-[Watch the 37-second demo](https://asciinema.org/a/1265196) · [Download the recording](docs/demo.cast)
+[View the full-size demo](docs/demo.gif) · [Download the recording](docs/demo.cast)
 
-*Explore a branch, switch to a file tree, mark files viewed, and catch untracked files before committing.*
+*Compare inline and split diffs, browse a file tree, resume viewed progress, and switch between committed and local changes.*
 
 ## Make your next review easier
 
