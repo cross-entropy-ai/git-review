@@ -18,25 +18,31 @@ import (
 
 const usage = `Usage: git review [options] [base [head]]
 
-Review committed changes from merge-base(base, head) to head in a TUI.
+Automatically review local changes when present, otherwise committed changes.
+Committed review compares merge-base(base, head) to head; refs need not be branches.
 Default base: main, origin/main, master, then origin/master. Default head: HEAD.
-Use -w to review staged, unstaged, and untracked changes against HEAD instead.
+Explicit base/head refs select committed review unless --auto is given.
 
 Options:
-  -w, --working-tree  Review all uncommitted changes against HEAD
-  --base REF       Base branch, tag, or commit
-  --head REF       Head branch, tag, or commit (default HEAD)
-  --context N      Context lines per hunk, 0–100 (default 3)
-  -C DIR           Run in this repository (default current directory)
-  --stat           Print file and total statistics without opening the TUI
-  --theme MODE     Color theme: auto, light, or dark (default auto)
-  --no-color       Disable color and syntax highlighting (also NO_COLOR)
-  --no-state       Keep viewed progress in memory only
-  --no-mouse       Disable mouse reporting for native terminal text selection
-  --version        Print version
-  -h, --help       Show this help
+  --auto              Choose local or committed changes automatically (default)
+  -w, --working-tree   Review all uncommitted changes against HEAD
+  -c, --committed      Review committed changes, even with local changes
+  --base REF          Base branch, tag, or commit
+  --head REF          Head branch, tag, or commit (default HEAD)
+  --context N         Context lines per hunk, 0–100 (default 3)
+  -C DIR              Run in this repository (default current directory)
+  --stat              Print file and total statistics without opening the TUI
+  --theme MODE        Color theme: auto, light, or dark (default auto)
+  --no-color          Disable color and syntax highlighting (also NO_COLOR)
+  --no-state          Keep viewed progress in memory only
+  --no-mouse          Disable mouse reporting for native terminal text selection
+  --version           Print version
+  -h, --help          Show this help
 
-Keys: Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
+--auto, --working-tree, and --committed are mutually exclusive.
+With --auto, base/head refs apply only when there are no local changes.
+
+Keys: m review mode · Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
 Mouse: click files, fold arrows, viewed boxes, and toolbar; scroll or drag rails.
 The worktree and index are untouched in both review modes.
 `
@@ -46,13 +52,17 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	flags.SetOutput(stderr)
 	var opts gitdiff.Options
 	var stat, noColor, noState, noMouse, showVersion bool
+	var auto, workingTree, committed bool
 	var theme string
 	flags.StringVar(&opts.Base, "base", "", "base ref")
 	flags.StringVar(&opts.Head, "head", "HEAD", "head ref")
 	flags.StringVar(&opts.Dir, "C", ".", "repository directory")
 	flags.IntVar(&opts.Context, "context", 3, "context lines")
-	flags.BoolVar(&opts.WorkingTree, "working-tree", false, "review all uncommitted changes against HEAD")
-	flags.BoolVar(&opts.WorkingTree, "w", false, "review all uncommitted changes against HEAD")
+	flags.BoolVar(&workingTree, "working-tree", false, "review all uncommitted changes against HEAD")
+	flags.BoolVar(&workingTree, "w", false, "review all uncommitted changes against HEAD")
+	flags.BoolVar(&auto, "auto", false, "automatically choose local or committed changes")
+	flags.BoolVar(&committed, "committed", false, "review committed changes")
+	flags.BoolVar(&committed, "c", false, "review committed changes")
 	flags.BoolVar(&stat, "stat", false, "print statistics")
 	flags.StringVar(&theme, "theme", "auto", "color theme: auto, light, or dark")
 	flags.BoolVar(&noColor, "no-color", false, "disable colors")
@@ -79,9 +89,22 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		baseSet = baseSet || f.Name == "base"
 		headSet = headSet || f.Name == "head"
 	})
-	if opts.WorkingTree && (baseSet || headSet || flags.NArg() > 0) {
+	hasRefs := baseSet || headSet || flags.NArg() > 0
+	if (auto && workingTree) || (auto && committed) || (workingTree && committed) {
+		fmt.Fprintln(stderr, "git-review: --auto, --working-tree (-w), and --committed (-c) are mutually exclusive")
+		return 2
+	}
+	if workingTree && hasRefs {
 		fmt.Fprintln(stderr, "git-review: --working-tree (-w) cannot be combined with base or head refs")
 		return 2
+	}
+	switch {
+	case workingTree:
+		opts.Mode = gitdiff.ModeWorkingTree
+	case committed || (hasRefs && !auto):
+		opts.Mode = gitdiff.ModeCommitted
+	default:
+		opts.Mode = gitdiff.ModeAuto
 	}
 	if flags.NArg() > 0 {
 		if baseSet {

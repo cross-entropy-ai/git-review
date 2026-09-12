@@ -58,14 +58,17 @@ func runWithEnv(ctx context.Context, dir string, env []string, input io.Reader, 
 	return stdout.String(), nil
 }
 
-// Load compares merge-base(base, head) with head, or snapshots the working tree.
+// Load selects a review scope, then compares commits or snapshots the working tree.
 func Load(parent context.Context, opts Options) (*Comparison, error) {
 	ctx, cancel := context.WithTimeout(parent, 45*time.Second)
 	defer cancel()
 	if opts.Context < 0 || opts.Context > 100 {
 		return nil, errors.New("context must be between 0 and 100")
 	}
-	if opts.WorkingTree && (opts.Base != "" || (opts.Head != "" && opts.Head != "HEAD")) {
+	if opts.Mode != ModeAuto && opts.Mode != ModeWorkingTree && opts.Mode != ModeCommitted {
+		return nil, fmt.Errorf("unknown review mode %q", opts.Mode)
+	}
+	if opts.Mode == ModeWorkingTree && (opts.Base != "" || (opts.Head != "" && opts.Head != "HEAD")) {
 		return nil, errors.New("working-tree review compares against HEAD; base and head refs are not supported")
 	}
 	root, err := run(ctx, opts.Dir, "rev-parse", "--show-toplevel")
@@ -78,7 +81,14 @@ func Load(parent context.Context, opts Options) (*Comparison, error) {
 		return nil, err
 	}
 	c := &Comparison{Root: root, GitDir: strings.TrimSuffix(gitDir, "\n"), Base: opts.Base, Head: opts.Head}
-	if opts.WorkingTree {
+	workingTree := opts.Mode == ModeWorkingTree
+	if opts.Mode == ModeAuto {
+		workingTree, err = hasLocalChanges(ctx, root)
+		if err != nil {
+			return nil, fmt.Errorf("check local changes: %w", err)
+		}
+	}
+	if workingTree {
 		return loadWorkingTree(ctx, c, opts.Context)
 	}
 	if c.Head == "" {

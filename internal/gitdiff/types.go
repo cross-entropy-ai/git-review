@@ -1,4 +1,4 @@
-// Package gitdiff reads branch and working-tree comparisons without changing Git state.
+// Package gitdiff reads committed and working-tree comparisons without changing Git state.
 package gitdiff
 
 // Comparison is an immutable snapshot of two revisions or HEAD and the working tree.
@@ -45,10 +45,19 @@ type Line struct {
 	New  int
 }
 
+// Mode selects the review scope. The zero value automatically checks local changes.
+type Mode string
+
+const (
+	ModeAuto        Mode = ""
+	ModeWorkingTree Mode = "working-tree"
+	ModeCommitted   Mode = "committed"
+)
+
 type Options struct {
-	Dir         string
-	Base        string
-	Head        string
-	Context     int
-	WorkingTree bool
+	Dir     string
+	Base    string
+	Head    string
+	Context int
+	Mode    Mode
 }

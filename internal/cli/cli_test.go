@@ -22,6 +22,10 @@ func TestArguments(t *testing.T) {
 		{[]string{"--unknown"}, 2, "flag provided but not defined"},
 		{[]string{"--context", "-1"}, 2, "between 0 and 100"},
 		{[]string{"--theme", "sepia"}, 2, "--theme must be auto, light, or dark"},
+		{[]string{"--auto", "-w"}, 2, "mutually exclusive"},
+		{[]string{"-c", "--auto"}, 2, "mutually exclusive"},
+		{[]string{"--working-tree", "--committed"}, 2, "mutually exclusive"},
+		{[]string{"-c", "-w"}, 2, "mutually exclusive"},
 		{[]string{"-w", "main"}, 2, "cannot be combined"},
 		{[]string{"--working-tree", "--base", "main"}, 2, "cannot be combined"},
 		{[]string{"-w", "--head", "HEAD"}, 2, "cannot be combined"},
@@ -96,16 +100,62 @@ func TestStatsWithRealRepository(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("new file\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, option := range []string{"-w", "--working-tree"} {
+	for _, option := range []string{"", "--auto", "-w", "--working-tree"} {
 		out.Reset()
 		errOut.Reset()
-		if code := Run([]string{option, "--stat", "-C", dir}, &out, &errOut, "test"); code != 0 {
+		args := []string{"--stat", "-C", dir}
+		if option != "" {
+			args = append(args, option)
+		}
+		if code := Run(args, &out, &errOut, "test"); code != 0 {
 			t.Fatalf("%s: code %d: %s", option, code, errOut.String())
 		}
 		if !strings.Contains(out.String(), `"HEAD" -> "working tree"`) || !strings.Contains(out.String(), "1 files changed, 1 insertions(+), 0 deletions(-)") || !strings.Contains(out.String(), "untracked.txt") {
 			t.Fatalf("%s: unexpected working-tree statistics: %s", option, out.String())
 		}
 	}
+	git("tag", "base-tag", "main")
+	for _, test := range []struct {
+		args  []string
+		local bool
+	}{
+		{[]string{"-c"}, false},
+		{[]string{"--committed"}, false},
+		{[]string{"--base", "base-tag"}, false},
+		{[]string{"--head", "HEAD"}, false},
+		{[]string{"base-tag", "HEAD"}, false},
+		{[]string{"-c", "base-tag", "HEAD"}, false},
+		{[]string{"--auto", "--base", "base-tag"}, true},
+		{[]string{"--auto", "base-tag", "HEAD"}, true},
+	} {
+		out.Reset()
+		errOut.Reset()
+		args := append([]string{"--stat", "-C", dir}, test.args...)
+		if code := Run(args, &out, &errOut, "test"); code != 0 {
+			t.Fatalf("%v: code %d: %s", args, code, errOut.String())
+		}
+		if strings.Contains(out.String(), "untracked.txt") != test.local || strings.Contains(out.String(), `"a\nfile.txt"`) == test.local {
+			t.Fatalf("%v: wrong review scope: %s", args, out.String())
+		}
+	}
+	if err := os.Remove(filepath.Join(dir, "untracked.txt")); err != nil {
+		t.Fatal(err)
+	}
+	for _, option := range []string{"--auto", "-w", "--working-tree"} {
+		out.Reset()
+		errOut.Reset()
+		if code := Run([]string{"--stat", "-C", dir, option}, &out, &errOut, "test"); code != 0 {
+			t.Fatalf("%s: %s", option, errOut.String())
+		}
+		if option == "--auto" {
+			if !strings.Contains(out.String(), `"main"..."feature"`) {
+				t.Fatalf("auto did not fall back to committed changes: %s", out.String())
+			}
+		} else if !strings.Contains(out.String(), "No uncommitted changes to review.") {
+			t.Fatalf("%s did not stay in working-tree mode: %s", option, out.String())
+		}
+	}
+
 	if _, err := os.Stat(filepath.Join(dir, ".git", "git-review")); !os.IsNotExist(err) {
 		t.Fatal("working-tree --stat wrote review state")
 	}

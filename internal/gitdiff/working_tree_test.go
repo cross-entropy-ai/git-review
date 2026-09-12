@@ -51,7 +51,7 @@ func TestWorkingTreeIncludesAllPendingChangesWithoutGitWrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := gitDirectoryContents(t, filepath.Join(dir, ".git"))
-	c, err := Load(context.Background(), Options{Dir: dir, WorkingTree: true, Context: 3})
+	c, err := Load(context.Background(), Options{Dir: dir, Mode: ModeWorkingTree, Context: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestWorkingTreeSnapshotIdentityAndRenames(t *testing.T) {
 	}
 	load := func(contextLines int) *Comparison {
 		t.Helper()
-		c, err := Load(context.Background(), Options{Dir: dir, WorkingTree: true, Context: contextLines})
+		c, err := Load(context.Background(), Options{Dir: dir, Mode: ModeWorkingTree, Context: contextLines})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -137,7 +137,7 @@ func TestWorkingTreeDoesNotExecuteFiltersOrHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	write(t, dir, "source.go", "package main\nfunc changed() {}\n")
-	c, err := Load(context.Background(), Options{Dir: dir, WorkingTree: true, Context: 3})
+	c, err := Load(context.Background(), Options{Dir: dir, Context: 3})
 	if err != nil || len(c.Files) != 1 {
 		t.Fatalf("filter-free snapshot failed: %+v %v", c, err)
 	}
@@ -161,7 +161,7 @@ func TestWorkingTreeSparseAndSplitIndexes(t *testing.T) {
 		}
 		write(t, dir, "keep/a.txt", "after\n")
 		before := gitDirectoryContents(t, filepath.Join(dir, ".git"))
-		c, err := Load(context.Background(), Options{Dir: dir, WorkingTree: true, Context: 3})
+		c, err := Load(context.Background(), Options{Dir: dir, Mode: ModeWorkingTree, Context: 3})
 		if err != nil {
 			t.Fatalf("sparse=%v: %v", sparse, err)
 		}
@@ -187,11 +187,11 @@ func TestWorkingTreeLinkedWorktreeAndInvalidRefs(t *testing.T) {
 	linked := filepath.Join(t.TempDir(), "linked checkout")
 	git(t, dir, "worktree", "add", "-q", "--detach", linked, "HEAD")
 	write(t, linked, "new.txt", "included\n")
-	c, err := Load(context.Background(), Options{Dir: linked, WorkingTree: true, Context: 3})
+	c, err := Load(context.Background(), Options{Dir: linked, Mode: ModeWorkingTree, Context: 3})
 	if err != nil || len(c.Files) != 1 || !strings.Contains(c.GitDir, "worktrees") {
 		t.Fatalf("linked worktree failed: %+v %v", c, err)
 	}
-	for _, opts := range []Options{{Dir: dir, WorkingTree: true, Base: "main"}, {Dir: dir, WorkingTree: true, Head: "main"}} {
+	for _, opts := range []Options{{Dir: dir, Mode: ModeWorkingTree, Base: "main"}, {Dir: dir, Mode: ModeWorkingTree, Head: "main"}} {
 		if _, err := Load(context.Background(), opts); err == nil {
 			t.Fatal("working-tree mode accepted branch comparison refs")
 		}

@@ -67,7 +67,7 @@ func TestLoadUsesMergeBaseAndIgnoresUncommittedChanges(t *testing.T) {
 	git(t, dir, "add", "staged.txt")
 	write(t, dir, "source.go", "uncommitted\n")
 	before := git(t, dir, "status", "--porcelain=v1")
-	c, err := Load(context.Background(), Options{Dir: dir, Context: 3})
+	c, err := Load(context.Background(), Options{Mode: ModeCommitted, Dir: dir, Context: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestLoadChangeKindsAndUnusualPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	commit(t, dir)
-	c, err := Load(context.Background(), Options{Dir: dir, Context: 3})
+	c, err := Load(context.Background(), Options{Mode: ModeCommitted, Dir: dir, Context: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestLoadChangeKindsAndUnusualPaths(t *testing.T) {
 
 func TestLoadEmptyInvalidAndCancelled(t *testing.T) {
 	dir := repo(t)
-	c, err := Load(context.Background(), Options{Dir: dir, Context: 0})
+	c, err := Load(context.Background(), Options{Mode: ModeCommitted, Dir: dir, Context: 0})
 	if err != nil || len(c.Files) != 0 {
 		t.Fatalf("empty diff: %+v, %v", c, err)
 	}
@@ -152,7 +152,7 @@ func TestLoadEmptyInvalidAndCancelled(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := Load(ctx, Options{Dir: dir}); err == nil {
+	if _, err := Load(ctx, Options{Mode: ModeCommitted, Dir: dir}); err == nil {
 		t.Fatal("expected cancellation error")
 	}
 }
@@ -166,7 +166,7 @@ func TestLoadSubdirectoryAndGitConfig(t *testing.T) {
 	git(t, dir, "config", "diff.suppressBlankEmpty", "true")
 	git(t, dir, "config", "diff.external", "/does-not-exist")
 	git(t, dir, "config", "diff.relative", "true")
-	c, err := Load(context.Background(), Options{Dir: filepath.Join(dir, "sub"), Context: 3})
+	c, err := Load(context.Background(), Options{Mode: ModeCommitted, Dir: filepath.Join(dir, "sub"), Context: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func TestLoadSubmodulePointerAndWorktree(t *testing.T) {
 	git(t, dir, "commit", "-qm", "update submodule")
 	worktree := filepath.Join(t.TempDir(), "linked")
 	git(t, dir, "worktree", "add", "-q", "--detach", worktree, "HEAD")
-	c, err := Load(context.Background(), Options{Dir: worktree, Context: 3})
+	c, err := Load(context.Background(), Options{Mode: ModeCommitted, Dir: worktree, Context: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestDoesNotExecuteTextconv(t *testing.T) {
 	git(t, dir, "switch", "-qc", "feature")
 	write(t, dir, "source.go", "package main\nfunc updated() {}\n")
 	commit(t, dir)
-	c, err := Load(context.Background(), Options{Dir: dir, Context: 3})
+	c, err := Load(context.Background(), Options{Mode: ModeCommitted, Dir: dir, Context: 3})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,6 +9,17 @@ import (
 	"strings"
 )
 
+// Check both the index and worktree: staged edits can be reversed on disk,
+// leaving an empty HEAD-to-worktree diff while there are still local changes.
+func hasLocalChanges(ctx context.Context, root string) (bool, error) {
+	overrides, err := snapshotOverrides(ctx, root, os.DevNull)
+	if err != nil {
+		return false, err
+	}
+	status, err := run(ctx, root, append(overrides, "status", "--porcelain=v1", "-z", "--untracked-files=normal", "--ignore-submodules=none")...)
+	return status != "", err
+}
+
 func loadWorkingTree(ctx context.Context, c *Comparison, contextLines int) (*Comparison, error) {
 	head, err := run(ctx, c.Root, "rev-parse", "--verify", "HEAD^{commit}")
 	if err != nil {

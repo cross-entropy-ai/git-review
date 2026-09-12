@@ -158,7 +158,11 @@ func (m *Model) controlRow(y int, prefix string) string {
 		if button.key == "?" {
 			fg = m.palette.accent
 		}
-		out.WriteString(m.surface(fg, label, button.width))
+		if button.key == "m" {
+			out.WriteString(m.surfaceWithBackground(m.palette.accent, m.palette.selectionBackground, m.bold(label), button.width))
+		} else {
+			out.WriteString(m.surface(fg, label, button.width))
+		}
 		x = button.x + button.width
 	}
 	if x < m.width {
@@ -361,7 +365,7 @@ func (m *Model) emptyRow(y, width int) string {
 	if y == center+1 {
 		text = "Press Esc to clear the filter."
 		if len(m.comparison.Files) == 0 {
-			text = "Your branch matches its merge base."
+			text = "The head matches its merge base."
 			if m.comparison.WorkingTree {
 				text = "Your working tree matches HEAD."
 			}
@@ -382,7 +386,7 @@ func (m *Model) helpLines() []string {
 		"  Wheel            Scroll the pane under the pointer",
 		"  Shift + wheel    Scroll code horizontally",
 		"  Drag scrollbar   Jump through files or diff",
-		"  Toolbar          Click Filter, Collapse, Expand, Refresh, Help",
+		"  Toolbar          Click Mode, Filter, Collapse, Expand, Refresh, Help",
 		"", "  KEYBOARD",
 		"  Tab              Switch focus between files and diff",
 		"  t                Toggle flat file list / directory tree",
@@ -397,7 +401,8 @@ func (m *Model) helpLines() []string {
 		"  g / G            Top / bottom (also Home / End)",
 		"  [ / ]            Previous / next hunk",
 		"  h / l · ← / →    Horizontal scroll; 0 resets",
-		"  r                Reload branches and diff",
+		"  m                Cycle review mode: Auto → Working tree → Committed",
+		"  r                Reload review scope and diff",
 		"  ?                Toggle help",
 		"  q / Ctrl+C       Quit (q closes help first)", "",
 		"  TREE (with sidebar focus)",

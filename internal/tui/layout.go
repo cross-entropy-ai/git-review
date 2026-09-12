@@ -49,10 +49,13 @@ func (m *Model) controls() []control {
 			x--
 		}
 	}
-	if m.width >= 70 {
-		right(0, control{label: " r Refresh ", key: "r"}, control{label: " ? Help ", key: "?"})
+	mode := control{label: m.modeLabel(), key: "m"}
+	if m.width >= 90 {
+		right(0, mode, control{label: " r Refresh ", key: "r"}, control{label: " ? Help ", key: "?"})
+	} else if m.width >= 70 {
+		right(0, mode, control{label: " ? Help ", key: "?"})
 	} else {
-		right(0, control{label: " ? Help ", key: "?"})
+		right(0, mode)
 	}
 	searchWidth := m.width - 2
 	if m.width >= 90 {

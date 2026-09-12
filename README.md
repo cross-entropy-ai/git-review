@@ -77,24 +77,28 @@ just install
 
 This installs to `~/.local/bin`. Run `just demo` from the checkout for a ready-made sample review.
 
-## Two ways to review
+## Choose what to review
 
-**Before opening a PR** — review your branch's committed changes against `main`:
-
-```sh
-git review
-```
-
-**Before committing** — review everything pending against `HEAD`, including new files:
+**Automatic by default** — review local changes when present; otherwise review committed changes since the common ancestor with your base:
 
 ```sh
-git review -w
+git review                   # Same as git review --auto
 ```
+
+Force a scope when needed:
+
+```sh
+git review -w                # --working-tree: staged, unstaged, and untracked changes
+git review -c                # --committed: committed changes, even with local edits
+```
+
+Committed review compares `merge-base(base, head)` to `head`. Both refs can be branches, tags, or commit IDs. Passing refs selects committed review; add `--auto` to use them only as the fallback when there are no local changes. The three mode flags are mutually exclusive. The highlighted Mode control at the top shows the selected mode and, in Auto, the actual review scope. Click it or press `m` to cycle Auto → Working tree → Committed; your base/head refs are preserved.
 
 A few useful variations:
 
 ```sh
-git review --base develop     # Choose a different base branch
+git review --base develop     # Review committed changes against a different base
+git review v1.0 HEAD          # Compare a tag and a commit ref
 git review -C /path/to/repo    # Review another repository
 git review --theme light      # Choose light or dark manually
 git review --stat             # Print a quick change summary
@@ -112,6 +116,7 @@ git review --stat             # Print a quick change summary
 | `v` | Mark viewed, fold, and move on |
 | `/` | Find files by path |
 | `Tab` | Switch between the sidebar and diff |
+| `m` | Cycle Auto / Working tree / Committed |
 | `r` | Refresh the review |
 | `?` / `q` | Help / quit |
 
@@ -119,7 +124,7 @@ Prefer the mouse? Click a file to jump to it, click its checkbox to mark it view
 
 ## Good to know
 
-- The default review shows committed branch changes since the common ancestor with your base. `-w` / `--working-tree` shows current on-disk changes against `HEAD`, respecting Git ignore rules.
+- Auto mode checks staged, unstaged, and untracked changes, respecting Git ignore rules. `-w` / `--working-tree` shows current on-disk changes against `HEAD`; a clean worktree stays in this mode with an empty diff. `-c` / `--committed` always shows committed changes. Auto mode checks the scope again when you refresh with `r`.
 - Your files and staging area stay as they are. Viewed progress is saved locally under `.git/git-review/`; use `--no-state` for a session without saved progress.
 - Progress belongs to an exact comparison. Refreshing changed content starts a fresh review for the whole comparison; unchanged content keeps its viewed marks.
 - Use a terminal at least 90 columns wide for the sidebar. `--no-mouse` restores native terminal text selection; `--no-color` disables colors.

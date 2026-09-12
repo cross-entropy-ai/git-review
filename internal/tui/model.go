@@ -22,6 +22,7 @@ type row struct {
 type loadedMsg struct {
 	comparison *gitdiff.Comparison
 	err        error
+	options    *gitdiff.Options
 }
 
 type highlightKey struct {
@@ -103,9 +104,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case loadedMsg:
 		m.loading = false
 		if msg.err != nil {
-			m.message = "Refresh failed: " + safeText(msg.err.Error())
+			m.message = "Review failed: " + safeText(msg.err.Error())
 		} else {
 			m.message = "Refreshed comparison"
+			if msg.options != nil {
+				m.options = *msg.options
+			}
 			m.install(msg.comparison)
 		}
 	case tea.MouseMsg:
@@ -259,18 +263,63 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveHunk(1)
 		case "[":
 			m.moveHunk(-1)
-		case "r":
-			if !m.loading {
-				m.loading = true
-				opts := m.options
-				return m, func() tea.Msg {
-					c, err := gitdiff.Load(context.Background(), opts)
-					return loadedMsg{comparison: c, err: err}
-				}
+		case "m":
+			opts := m.options
+			switch opts.Mode {
+			case gitdiff.ModeAuto:
+				opts.Mode = gitdiff.ModeWorkingTree
+			case gitdiff.ModeWorkingTree:
+				opts.Mode = gitdiff.ModeCommitted
+			default:
+				opts.Mode = gitdiff.ModeAuto
 			}
+			return m, m.reload(opts)
+		case "r":
+			return m, m.reload(m.options)
 		}
 	}
 	return m, nil
+}
+
+// Keep the displayed scope and its options together until the new load succeeds.
+// The saved refs survive a visit to working-tree mode and are reused on return.
+func (m *Model) reload(opts gitdiff.Options) tea.Cmd {
+	if m.loading {
+		return nil
+	}
+	m.loading = true
+	m.message = "Loading " + modeName(opts.Mode) + "…"
+	return func() tea.Msg {
+		loadOpts := opts
+		if loadOpts.Mode == gitdiff.ModeWorkingTree {
+			loadOpts.Base, loadOpts.Head = "", "HEAD"
+		}
+		c, err := gitdiff.Load(context.Background(), loadOpts)
+		return loadedMsg{comparison: c, err: err, options: &opts}
+	}
+}
+
+func modeName(mode gitdiff.Mode) string {
+	switch mode {
+	case gitdiff.ModeWorkingTree:
+		return "Working tree"
+	case gitdiff.ModeCommitted:
+		return "Committed"
+	default:
+		return "Auto"
+	}
+}
+
+func (m *Model) modeLabel() string {
+	label := modeName(m.options.Mode)
+	if m.options.Mode == gitdiff.ModeAuto {
+		actual := gitdiff.ModeCommitted
+		if m.comparison.WorkingTree {
+			actual = gitdiff.ModeWorkingTree
+		}
+		label += " → " + modeName(actual)
+	}
+	return " m Mode: " + label + " "
 }
 
 func (m *Model) bodyHeight() int { return max(1, m.height-7) }
