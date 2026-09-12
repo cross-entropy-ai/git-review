@@ -238,7 +238,9 @@ func (m *Model) sidebar(g geometry) []string {
 		result = append(result, m.surfaceWithBackground(m.palette.foreground, bg, name, width))
 		directory := path.Dir(file.Path)
 		if directory == "." {
-			directory = "root"
+			directory = "./"
+		} else {
+			directory = "./" + directory
 		}
 		stats := m.stats(file.Added, file.Deleted)
 		if file.Binary {
