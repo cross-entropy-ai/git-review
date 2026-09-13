@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/diff"
 )
 
-func Path(c *gitdiff.Comparison) string {
+func Path(c *diff.Comparison) string {
 	sum := sha256.Sum256([]byte(c.MergeBase + "\x00" + c.HeadOID))
 	return filepath.Join(c.GitDir, "git-review", hex.EncodeToString(sum[:12])+".json")
 }

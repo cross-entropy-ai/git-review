@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
-	"github.com/cross-entropy-ai/git-review/internal/review"
+	"github.com/cross-entropy-ai/git-review/internal/backend"
+	"github.com/cross-entropy-ai/git-review/internal/diff"
 )
 
 type row struct {
@@ -20,9 +20,17 @@ type row struct {
 }
 
 type loadedMsg struct {
-	comparison *gitdiff.Comparison
-	err        error
-	options    *gitdiff.Options
+	snapshot *backend.Snapshot
+	err      error
+}
+
+type viewedMsg struct {
+	key, path string
+	err       error
+}
+
+type pendingViewed struct {
+	viewed, collapsed, dismissed bool
 }
 
 type highlightKey struct {
@@ -31,12 +39,17 @@ type highlightKey struct {
 }
 
 type Model struct {
-	comparison *gitdiff.Comparison
-	options    gitdiff.Options
+	comparison *diff.Comparison
+	snapshot   *backend.Snapshot
+	source     backend.Backend
+	mode       diff.Mode
+	ctx        context.Context
+	cancel     context.CancelFunc
 	color      bool
 	palette    palette
-	persist    bool
 	viewed     map[string]bool
+	dismissed  map[string]bool
+	pending    map[string]pendingViewed
 	collapsed  map[string]bool
 	highlights map[highlightKey][]string
 	visible    []int
@@ -62,40 +75,36 @@ type Model struct {
 	message    string
 }
 
-func New(c *gitdiff.Comparison, opts gitdiff.Options, color, persist bool, theme Theme) *Model {
-	// Auto is a startup choice; refreshes and toggles use the resolved scope.
-	if opts.Mode == gitdiff.ModeAuto {
-		opts.Mode = gitdiff.ModeCommitted
-		if c.WorkingTree {
-			opts.Mode = gitdiff.ModeWorkingTree
-		}
-	}
-	m := &Model{comparison: c, options: opts, color: color, persist: persist, palette: paletteFor(theme), width: 100, height: 30, treeClosed: make(map[string]bool)}
-	m.install(c)
+func New(s *backend.Snapshot, source backend.Backend, color bool, theme Theme) *Model {
+	ctx, cancel := context.WithCancel(context.Background())
+	m := &Model{source: source, ctx: ctx, cancel: cancel, color: color, palette: paletteFor(theme), width: 100, height: 30, treeClosed: make(map[string]bool), pending: make(map[string]pendingViewed)}
+	m.install(s)
 	return m
 }
 
-func (m *Model) install(c *gitdiff.Comparison) {
+func (m *Model) Close() { m.cancel() }
+
+func (m *Model) install(s *backend.Snapshot) {
 	previousViewed := m.viewed
-	sameSnapshot := m.comparison != nil && m.comparison.HeadOID == c.HeadOID && m.comparison.MergeBase == c.MergeBase
-	m.comparison = c
-	m.viewed = make(map[string]bool)
+	sameSnapshot := m.snapshot != nil && m.snapshot.Key == s.Key
+	m.snapshot, m.comparison, m.mode = s, s.Comparison, s.Mode
+	m.viewed, m.dismissed = make(map[string]bool), make(map[string]bool)
 	m.collapsed = make(map[string]bool)
 	m.highlights = make(map[highlightKey][]string)
 	m.selected, m.offset, m.xOffset = 0, 0, 0
 	m.sideOffset, m.dragging = 0, ""
-	if m.persist {
-		viewed, err := review.Load(review.Path(c))
-		if err != nil {
-			m.message = "Could not restore progress: " + safeText(err.Error())
-		} else {
-			m.viewed = viewed
-		}
-	} else if sameSnapshot && previousViewed != nil {
+	for path, state := range s.Viewed {
+		m.viewed[path] = state == backend.Viewed
+		m.dismissed[path] = state == backend.Dismissed
+	}
+	if s.Persistence == backend.Memory && sameSnapshot && previousViewed != nil {
 		m.viewed = previousViewed
 	}
 	for path, viewed := range m.viewed {
 		m.collapsed[path] = viewed
+	}
+	if s.Warning != "" {
+		m.message = safeText(s.Warning)
 	}
 	m.rebuild()
 }
@@ -114,10 +123,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.message = "Review failed: " + safeText(msg.err.Error())
 		} else {
 			m.message = "Refreshed comparison"
-			if msg.options != nil {
-				m.options = *msg.options
-			}
-			m.install(msg.comparison)
+			m.install(msg.snapshot)
+		}
+	case viewedMsg:
+		if msg.key != m.snapshot.Key {
+			return m, nil
+		}
+		previous, ok := m.pending[msg.path]
+		if !ok {
+			return m, nil
+		}
+		delete(m.pending, msg.path)
+		if msg.err != nil {
+			m.viewed[msg.path], m.collapsed[msg.path], m.dismissed[msg.path] = previous.viewed, previous.collapsed, previous.dismissed
+			m.message = "Viewed update failed for " + safeText(msg.path) + ": " + safeText(msg.err.Error())
+			m.rebuild()
+		} else {
+			m.message = "Viewed state saved for " + safeText(msg.path)
 		}
 	case tea.MouseMsg:
 		return m, m.mouse(msg)
@@ -178,6 +200,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = ""
 		switch key {
 		case "q":
+			if len(m.pending) > 0 {
+				m.message = "Viewed updates are still saving; wait, or Ctrl+C to exit"
+				return m, nil
+			}
 			return m, tea.Quit
 		case "?":
 			m.help = true
@@ -264,54 +290,76 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.treeDirectoryFocused() {
 				m.message = "Select a file to mark it viewed"
 			} else {
-				m.toggleViewed(true)
+				return m, m.toggleViewed(true)
 			}
 		case "]":
 			m.moveHunk(1)
 		case "[":
 			m.moveHunk(-1)
 		case "m":
-			opts := m.options
-			if opts.Mode == gitdiff.ModeWorkingTree {
-				opts.Mode = gitdiff.ModeCommitted
-			} else {
-				opts.Mode = gitdiff.ModeWorkingTree
+			modes := m.source.Modes()
+			if len(modes) < 2 {
+				return m, nil
 			}
-			return m, m.reload(opts)
+			for i, mode := range modes {
+				if mode == m.mode {
+					return m, m.reload(modes[(i+1)%len(modes)])
+				}
+			}
 		case "r":
-			return m, m.reload(m.options)
+			return m, m.reload(m.mode)
 		}
 	}
 	return m, nil
 }
 
-// Keep the displayed scope and its options together until the new load succeeds.
-// The saved refs survive a visit to working-tree mode and are reused on return.
-func (m *Model) reload(opts gitdiff.Options) tea.Cmd {
+// Mode and progress are replaced only after the backend finishes successfully.
+func (m *Model) reload(mode diff.Mode) tea.Cmd {
 	if m.loading {
 		return nil
 	}
+	if len(m.pending) > 0 {
+		m.message = "Wait for Viewed updates to finish before refreshing"
+		return nil
+	}
 	m.loading = true
-	m.message = "Loading " + modeName(opts.Mode) + "…"
+	m.message = "Loading " + modeName(mode) + "…"
 	return func() tea.Msg {
-		loadOpts := opts
-		if loadOpts.Mode == gitdiff.ModeWorkingTree {
-			loadOpts.Base, loadOpts.Head = "", "HEAD"
-		}
-		c, err := gitdiff.Load(context.Background(), loadOpts)
-		return loadedMsg{comparison: c, err: err, options: &opts}
+		s, err := m.source.Load(m.ctx, mode)
+		return loadedMsg{snapshot: s, err: err}
 	}
 }
 
-func modeName(mode gitdiff.Mode) string {
-	if mode == gitdiff.ModeWorkingTree {
+func modeName(mode diff.Mode) string {
+	switch mode {
+	case diff.ModeWorkingTree:
 		return "Working tree"
+	case diff.ModePullRequest:
+		return "GitHub PR"
+	default:
+		return "Committed"
 	}
-	return "Committed"
 }
 
 func (m *Model) modeLabel() string {
-	return " m Mode: " + modeName(m.options.Mode) + " "
+	key := " m"
+	if len(m.source.Modes()) < 2 {
+		key = ""
+	}
+	return key + " Mode: " + modeName(m.mode) + " "
+}
+
+func (m *Model) viewedBox(path string) string {
+	if _, ok := m.pending[path]; ok {
+		return m.ink(m.palette.accent, "[~]")
+	}
+	if m.viewed[path] {
+		return m.ink(m.palette.green, "[✓]")
+	}
+	if m.dismissed[path] {
+		return m.ink(m.palette.red, "[!]")
+	}
+	return "[ ]"
 }
 
 func (m *Model) bodyHeight() int { return max(1, m.height-7) }
@@ -457,18 +505,22 @@ func (m *Model) toggleFold() {
 	m.jumpSelected()
 }
 
-func (m *Model) toggleViewed(advance bool) {
+func (m *Model) toggleViewed(advance bool) tea.Cmd {
 	if len(m.visible) == 0 {
-		return
+		return nil
+	}
+	if m.loading {
+		m.message = "Wait for the comparison to finish loading"
+		return nil
 	}
 	path := m.comparison.Files[m.selected].Path
-	viewed := !m.viewed[path]
-	m.viewed[path], m.collapsed[path] = viewed, viewed
-	if m.persist {
-		if err := review.Save(review.Path(m.comparison), m.viewed); err != nil {
-			m.message = "Progress kept in memory; save failed: " + safeText(err.Error())
-		}
+	if _, ok := m.pending[path]; ok {
+		m.message = "Viewed update is still saving for " + safeText(path)
+		return nil
 	}
+	previous := pendingViewed{m.viewed[path], m.collapsed[path], m.dismissed[path]}
+	viewed := !m.viewed[path]
+	m.viewed[path], m.collapsed[path], m.dismissed[path] = viewed, viewed, false
 	m.rebuild()
 	if viewed && advance {
 		start := 0
@@ -487,6 +539,16 @@ func (m *Model) toggleViewed(advance bool) {
 		}
 	}
 	m.jumpSelected()
+	if m.snapshot.Persistence == backend.Memory {
+		return nil
+	}
+	m.pending[path] = previous
+	m.message = "Saving Viewed state for " + safeText(path) + "…"
+	s := m.snapshot
+	return func() tea.Msg {
+		err := m.source.SetViewed(m.ctx, s, path, viewed)
+		return viewedMsg{key: s.Key, path: path, err: err}
+	}
 }
 
 func (m *Model) viewedCount() int {

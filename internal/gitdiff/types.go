@@ -1,57 +1,19 @@
-// Package gitdiff reads committed and working-tree comparisons without changing Git state.
+// Package gitdiff reads local comparisons without changing Git state.
 package gitdiff
 
-// Comparison is an immutable snapshot of two revisions or HEAD and the working tree.
-type Comparison struct {
-	Root        string
-	GitDir      string
-	Base        string
-	Head        string
-	BaseOID     string
-	HeadOID     string
-	MergeBase   string
-	Files       []File
-	Added       int
-	Deleted     int
-	WorkingTree bool
-}
+import "github.com/cross-entropy-ai/git-review/internal/diff"
 
-// File describes a changed path and its unified diff.
-type File struct {
-	Path     string
-	OldPath  string
-	Status   string
-	OldMode  string
-	NewMode  string
-	OldOID   string
-	NewOID   string
-	Added    int
-	Deleted  int
-	Binary   bool
-	Metadata []string
-	Hunks    []Hunk
-}
-
-// Hunk preserves Git's range header and each line's old/new position.
-type Hunk struct {
-	Header string
-	Lines  []Line
-}
-
-type Line struct {
-	Kind byte // ' ', '+', '-', or '\\' for a missing final newline.
-	Text string
-	Old  int
-	New  int
-}
-
-// Mode selects the review scope. The zero value automatically checks local changes.
-type Mode string
+// Aliases keep Git parsing code on the shared comparison model.
+type Comparison = diff.Comparison
+type File = diff.File
+type Hunk = diff.Hunk
+type Line = diff.Line
+type Mode = diff.Mode
 
 const (
-	ModeAuto        Mode = ""
-	ModeWorkingTree Mode = "working-tree"
-	ModeCommitted   Mode = "committed"
+	ModeAuto        = diff.ModeAuto
+	ModeWorkingTree = diff.ModeWorkingTree
+	ModeCommitted   = diff.ModeCommitted
 )
 
 type Options struct {

@@ -48,6 +48,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		if !button.contains(msg.X, msg.Y) {
 			continue
 		}
+		if button.key == "" {
+			return nil
+		}
 		if button.key == "/" && !m.help {
 			m.filtering, m.message = true, ""
 			return nil
@@ -96,7 +99,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 				case x == 2:
 					m.toggleFold()
 				case x >= 4 && x <= 6:
-					m.toggleViewed(false)
+					return m.toggleViewed(false)
 				}
 			}
 			return nil
@@ -108,7 +111,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 			case msg.X == 2:
 				m.toggleFold()
 			case msg.X >= 4 && msg.X <= 6:
-				m.toggleViewed(false)
+				return m.toggleViewed(false)
 			}
 		}
 		return nil
@@ -125,7 +128,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 			x := msg.X - g.diffX - 1
 			buttonEnd := g.diffWidth - fileFrameInset
 			if x >= buttonEnd-viewedButtonWidth && x < buttonEnd {
-				m.toggleViewed(false)
+				return m.toggleViewed(false)
 			} else {
 				m.toggleFold()
 			}

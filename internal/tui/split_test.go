@@ -139,7 +139,7 @@ func TestSplitTogglePreservesReviewAndPosition(t *testing.T) {
 	if m.selected != selected+1 {
 		t.Fatal("split file navigation failed")
 	}
-	m.install(m.comparison)
+	m.install(m.snapshot)
 	if !m.splitMode || m.rows[2].kind != 'd' {
 		t.Fatal("refresh lost split mode")
 	}

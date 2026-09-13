@@ -204,10 +204,7 @@ func (m *Model) treeSidebar(g geometry) []string {
 			if m.collapsed[entry.path] {
 				fold = "▸"
 			}
-			box := "[ ]"
-			if m.viewed[entry.path] {
-				box = m.ink(m.palette.green, "[✓]")
-			}
+			box := m.viewedBox(entry.path)
 			name := safeText(entry.name)
 			if active {
 				name = m.bold(m.ink(m.palette.accent, name))

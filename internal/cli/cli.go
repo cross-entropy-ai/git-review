@@ -12,6 +12,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
+	"github.com/cross-entropy-ai/git-review/internal/backend"
+	"github.com/cross-entropy-ai/git-review/internal/diff"
 	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
 	"github.com/cross-entropy-ai/git-review/internal/tui"
 	"github.com/muesli/termenv"
@@ -19,12 +21,18 @@ import (
 
 const usage = `Usage: git review [options] [base [head]]
        git review [options] base...head
+       git review [options] PR_URL | '#NUMBER' | NUMBER
+       git review [options] REPO_URL NUMBER
 
 At startup, review local changes when present, otherwise committed changes.
 Committed review compares merge-base(base, head) to head; refs need not be branches.
 Default base: main, origin/main, master, then origin/master. Default head: HEAD.
 Explicit base/head refs select committed review unless --auto is given.
 base...head is shorthand for two refs; both endpoints are required.
+For a single NUMBER, a local ref wins; otherwise look up that PR in origin.
+'#NUMBER' explicitly selects an origin PR. PR URLs work outside repositories.
+GitHub review requires gh and an active login: gh auth login --hostname HOST.
+PR diffs and Viewed state use the GitHub API; no clone, fetch, or checkout.
 
 Options:
   --auto              Choose local or committed changes at startup (default)
@@ -32,22 +40,23 @@ Options:
   -c, --committed      Review committed changes, even with local changes
   --base REF          Base branch, tag, or commit
   --head REF          Head branch, tag, or commit (default HEAD)
-  --context N         Context lines per hunk, 0–100 (default 3)
+  --context N         Local context lines per hunk, 0–100 (default 3)
   -C DIR              Run in this repository (default current directory)
   --stat              Print file and total statistics without opening the TUI
   --theme MODE        Color theme: auto, light, or dark (default auto)
   --no-color          Disable color and syntax highlighting (also NO_COLOR)
-  --no-state          Keep viewed progress in memory only
+  --no-state          Keep progress in memory; disable local saves and GitHub sync
   --no-mouse          Disable mouse reporting for native terminal text selection
   --version           Print version
   -h, --help          Show this help
 
 --auto, --working-tree, and --committed are mutually exclusive.
 With --auto, base/head refs apply only when there are no local changes.
+PR targets cannot use local scope flags or --base/--head; GitHub fixes context.
 
 Keys: m review mode · Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
 Mouse: click files, fold arrows, viewed boxes, and toolbar; scroll or drag rails.
-The worktree and index are untouched in both review modes.
+The worktree and index are untouched. In PR review, v syncs Viewed to GitHub.
 `
 
 func Run(args []string, stdout, stderr io.Writer, version string) int {
@@ -109,38 +118,58 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	default:
 		opts.Mode = gitdiff.ModeAuto
 	}
-	var rangeRef string
-	for _, ref := range flags.Args() {
-		if strings.Contains(ref, "...") {
-			rangeRef = ref
-			break
-		}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	target, err := remoteTarget(ctx, flags.Args(), opts.Dir, !baseSet && !headSet)
+	if err != nil {
+		fmt.Fprintln(stderr, "git-review:", err)
+		return 2
 	}
-	if rangeRef != "" {
-		if flags.NArg() != 1 || baseSet || headSet {
-			fmt.Fprintln(stderr, "git-review: base...head cannot be combined with other refs or --base/--head")
+	if target != nil {
+		if baseSet || headSet || auto || workingTree || committed {
+			fmt.Fprintln(stderr, "git-review: GitHub PR review cannot be combined with --base, --head, --auto, -w, or -c")
 			return 2
 		}
-		base, head, _ := strings.Cut(rangeRef, "...")
-		if base == "" || head == "" || strings.Contains(head, "...") || strings.HasPrefix(head, ".") || strings.HasSuffix(base, ".") {
-			fmt.Fprintln(stderr, "git-review: expected base...head with exactly three dots and both refs")
+		if opts.Context != 3 {
+			fmt.Fprintln(stderr, "git-review: GitHub provides fixed diff context; --context is only supported for local review")
 			return 2
 		}
-		opts.Base, opts.Head = base, head
-	} else {
-		if flags.NArg() > 0 {
-			if baseSet {
-				fmt.Fprintln(stderr, "git-review: choose --base or a positional base, not both")
-				return 2
+		opts.Mode = diff.ModePullRequest
+	}
+	if target == nil {
+		var rangeRef string
+		for _, ref := range flags.Args() {
+			if strings.Contains(ref, "...") {
+				rangeRef = ref
+				break
 			}
-			opts.Base = flags.Arg(0)
 		}
-		if flags.NArg() > 1 {
-			if headSet {
-				fmt.Fprintln(stderr, "git-review: choose --head or a positional head, not both")
+		if rangeRef != "" {
+			if flags.NArg() != 1 || baseSet || headSet {
+				fmt.Fprintln(stderr, "git-review: base...head cannot be combined with other refs or --base/--head")
 				return 2
 			}
-			opts.Head = flags.Arg(1)
+			base, head, _ := strings.Cut(rangeRef, "...")
+			if base == "" || head == "" || strings.Contains(head, "...") || strings.HasPrefix(head, ".") || strings.HasSuffix(base, ".") {
+				fmt.Fprintln(stderr, "git-review: expected base...head with exactly three dots and both refs")
+				return 2
+			}
+			opts.Base, opts.Head = base, head
+		} else {
+			if flags.NArg() > 0 {
+				if baseSet {
+					fmt.Fprintln(stderr, "git-review: choose --base or a positional base, not both")
+					return 2
+				}
+				opts.Base = flags.Arg(0)
+			}
+			if flags.NArg() > 1 {
+				if headSet {
+					fmt.Fprintln(stderr, "git-review: choose --head or a positional head, not both")
+					return 2
+				}
+				opts.Head = flags.Arg(1)
+			}
 		}
 	}
 	if opts.Context < 0 || opts.Context > 100 {
@@ -155,23 +184,40 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		fmt.Fprintln(stderr, "git-review: the TUI needs an interactive terminal; use --stat for redirected output")
 		return 1
 	}
-	c, err := gitdiff.Load(context.Background(), opts)
+	_, envNoColor := os.LookupEnv("NO_COLOR")
+	color := !noColor && !envNoColor && os.Getenv("TERM") != "dumb"
+	var source backend.Backend = backend.NewLocal(opts, !stat && !noState)
+	stopLoading := func() {}
+	if target != nil {
+		source = backend.NewGitHub(*target, !stat && !noState)
+		if !stat {
+			stopLoading = startPRLoading(stderr, *target, color)
+			defer stopLoading()
+		}
+	}
+	snapshot, err := source.Load(ctx, opts.Mode)
+	stopLoading()
 	if err != nil {
 		fmt.Fprintln(stderr, "git-review:", err)
 		return 1
 	}
 	if stat {
-		printStats(stdout, c)
+		if target != nil {
+			fmt.Fprintf(stdout, "%s: %s\n%s\n\n", displayPath(snapshot.Label), displayPath(snapshot.Title), snapshot.URL)
+		}
+		printStats(stdout, snapshot.Comparison)
+		if snapshot.Warning != "" {
+			fmt.Fprintln(stderr, "git-review:", snapshot.Warning)
+		}
 		return 0
 	}
-	_, envNoColor := os.LookupEnv("NO_COLOR")
-	color := !noColor && !envNoColor && os.Getenv("TERM") != "dumb"
 	// Query before Bubble Tea starts reading terminal input. Explicit themes and
 	// monochrome output do not need a terminal query.
 	resolvedTheme := resolveTheme(theme, color, func() bool {
 		return termenv.NewOutput(stdout).HasDarkBackground()
 	})
-	model := tui.New(c, opts, color, !noState, resolvedTheme)
+	model := tui.New(snapshot, source, color, resolvedTheme)
+	defer model.Close()
 	programOptions := []tea.ProgramOption{tea.WithOutput(stdout), tea.WithAltScreen()}
 	if !noMouse {
 		programOptions = append(programOptions, tea.WithMouseCellMotion())
@@ -204,7 +250,7 @@ func displayPath(path string) string {
 	return strconv.QuoteToGraphic(path)
 }
 
-func printStats(out io.Writer, c *gitdiff.Comparison) {
+func printStats(out io.Writer, c *diff.Comparison) {
 	separator := "..."
 	if c.WorkingTree {
 		separator = " -> "

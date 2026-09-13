@@ -6,8 +6,14 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/cross-entropy-ai/git-review/internal/backend"
 	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
 )
+
+func localModel(c *gitdiff.Comparison, opts gitdiff.Options, color, persist bool, theme Theme) *Model {
+	source := backend.NewLocal(opts, persist)
+	return New(source.Restore(c), source, color, theme)
+}
 
 func sampleModel(color bool) *Model {
 	c := &gitdiff.Comparison{Base: "main", Head: "feature", MergeBase: "0123456789", Added: 2, Deleted: 1}
@@ -19,7 +25,7 @@ func sampleModel(color bool) *Model {
 		}
 		c.Files = append(c.Files, f)
 	}
-	return New(c, gitdiff.Options{}, color, false, DarkTheme)
+	return localModel(c, gitdiff.Options{}, color, false, DarkTheme)
 }
 
 func press(m *Model, key string) {
@@ -178,7 +184,7 @@ func TestHighlightUsesSyntaxColors(t *testing.T) {
 func TestRefreshAndHelp(t *testing.T) {
 	m := sampleModel(false)
 	press(m, "v")
-	m.Update(loadedMsg{comparison: m.comparison})
+	m.Update(loadedMsg{snapshot: m.snapshot})
 	if !m.viewed["main.go"] {
 		t.Fatal("same-snapshot refresh lost in-memory progress")
 	}
@@ -281,25 +287,28 @@ func TestBatchedKeystrokesAndBracketedPaste(t *testing.T) {
 func TestWorkingTreeRefreshInvalidatesViewedSnapshot(t *testing.T) {
 	for _, persist := range []bool{false, true} {
 		m := sampleModel(false)
-		m.persist = persist
+		source := m.source.(*backend.Local)
+		source.Persist = persist
 		first := *m.comparison
 		first.WorkingTree, first.GitDir = true, t.TempDir()
 		first.Base, first.Head = "HEAD", "working tree"
 		first.MergeBase, first.HeadOID = "head-commit", "first-content-tree"
-		m.install(&first)
-		press(m, "v")
-		m.Update(loadedMsg{comparison: &first})
+		m.install(source.Restore(&first))
+		if cmd := m.activate("v"); cmd != nil {
+			m.Update(cmd())
+		}
+		m.Update(loadedMsg{snapshot: source.Restore(&first)})
 		if !m.viewed["main.go"] {
 			t.Fatal("refreshing unchanged working-tree content lost progress")
 		}
 		second := first
 		second.HeadOID = "edited-content-tree"
-		m.Update(loadedMsg{comparison: &second})
+		m.Update(loadedMsg{snapshot: source.Restore(&second)})
 		if m.viewedCount() != 0 || m.collapsed["main.go"] {
 			t.Fatal("changed working-tree snapshot retained stale viewed progress")
 		}
 		if persist {
-			m.Update(loadedMsg{comparison: &first})
+			m.Update(loadedMsg{snapshot: source.Restore(&first)})
 			if !m.viewed["main.go"] {
 				t.Fatal("reopening the exact working-tree snapshot did not restore progress")
 			}

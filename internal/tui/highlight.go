@@ -8,7 +8,7 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/diff"
 )
 
 // safeText keeps repository content from emitting terminal control sequences.
@@ -29,7 +29,7 @@ func safeText(s string) string {
 
 // Highlight each side independently so deleted text cannot corrupt the added
 // side's lexer state. Context is limited to the lines included in each hunk.
-func highlightFile(file gitdiff.File, color bool, styleName string) [][]string {
+func highlightFile(file diff.File, color bool, styleName string) [][]string {
 	result := make([][]string, len(file.Hunks))
 	lexer := lexers.Match(file.Path)
 	if lexer == nil && file.OldPath != "" {

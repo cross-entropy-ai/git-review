@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
+	"github.com/cross-entropy-ai/git-review/internal/diff"
 )
 
 // Pair contiguous changes in source order. Newline notices stay attached to
 // their source line, and unmatched additions/deletions get an empty other side.
-func splitRows(file, hunk int, lines []gitdiff.Line) []row {
+func splitRows(file, hunk int, lines []diff.Line) []row {
 	type entry struct{ line, note int }
 	var rows []row
 	appendRow := func(left, right int) {

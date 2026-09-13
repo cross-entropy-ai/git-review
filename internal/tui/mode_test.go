@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/cross-entropy-ai/git-review/internal/backend"
 	"github.com/cross-entropy-ai/git-review/internal/gitdiff"
 )
 
@@ -26,17 +27,17 @@ func TestModeControlVisibleAndClickable(t *testing.T) {
 			{gitdiff.ModeCommitted, false, "Committed"},
 		} {
 			m := sampleModel(true)
-			m.options.Mode, m.comparison.WorkingTree = test.mode, test.local
-			m = New(m.comparison, m.options, true, false, DarkTheme)
+			m.comparison.WorkingTree = test.local
+			m = localModel(m.comparison, gitdiff.Options{Mode: test.mode}, true, false, DarkTheme)
 			m.width = width
 			resolved := gitdiff.ModeCommitted
 			if test.local {
 				resolved = gitdiff.ModeWorkingTree
 			}
-			if m.options.Mode != resolved || strings.Contains(m.View(), "Auto") {
+			if m.mode != resolved || strings.Contains(m.View(), "Auto") {
 				t.Fatal("startup did not resolve auto to an actual review mode")
 			}
-			m.comparison.Root = "/a/very-long-repository-name-that-must-not-hide-the-mode"
+			m.snapshot.Label = "a-very-long-repository-name-that-must-not-hide-the-mode"
 			lines := strings.Split(m.View(), "\n")
 			header := ansi.Strip(lines[0])
 			needle := "m Mode: " + test.label
@@ -53,7 +54,7 @@ func TestModeControlVisibleAndClickable(t *testing.T) {
 			if cmd == nil || !m.loading {
 				t.Fatal("clicking the visible mode control did not start loading")
 			}
-			if m.options.Mode != resolved {
+			if m.mode != resolved {
 				t.Fatal("mode changed before the comparison finished loading")
 			}
 			if _, again := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")}); again != nil {
@@ -99,7 +100,7 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := New(c, opts, false, false, DarkTheme)
+	m := localModel(c, opts, false, false, DarkTheme)
 	load := func(key string) {
 		t.Helper()
 		cmd := m.activate(key)
@@ -110,14 +111,14 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 		if m.loading || strings.Contains(m.message, "failed") {
 			t.Fatalf("load failed: %s", m.message)
 		}
-		if m.options.Base != "base-tag" || m.options.Head != head {
-			t.Fatalf("switch lost explicit refs: %+v", m.options)
+		if m.source.(*backend.Local).Options.Base != "base-tag" || m.source.(*backend.Local).Options.Head != head {
+			t.Fatalf("switch lost explicit refs: %+v", m.source.(*backend.Local).Options)
 		}
 	}
 	check := func(mode gitdiff.Mode, path string) {
 		t.Helper()
-		if m.options.Mode != mode || len(m.comparison.Files) != 1 || m.comparison.Files[0].Path != path {
-			t.Fatalf("want %s / %s, got %s / %+v", mode, path, m.options.Mode, m.comparison.Files)
+		if m.mode != mode || len(m.comparison.Files) != 1 || m.comparison.Files[0].Path != path {
+			t.Fatalf("want %s / %s, got %s / %+v", mode, path, m.mode, m.comparison.Files)
 		}
 	}
 	check(gitdiff.ModeWorkingTree, "local.txt")
@@ -125,7 +126,7 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 		t.Fatal(err)
 	}
 	load("r")
-	if m.options.Mode != gitdiff.ModeWorkingTree || !m.comparison.WorkingTree || len(m.comparison.Files) != 0 {
+	if m.mode != gitdiff.ModeWorkingTree || !m.comparison.WorkingTree || len(m.comparison.Files) != 0 {
 		t.Fatal("refresh changed scope after local changes disappeared")
 	}
 
@@ -134,7 +135,7 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m = New(c, opts, false, false, DarkTheme)
+	m = localModel(c, opts, false, false, DarkTheme)
 	check(gitdiff.ModeCommitted, "committed.txt")
 	write("local.txt")
 	load("r")
@@ -148,11 +149,11 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 
 	// A failed switch must leave the current diff and mode consistent.
 	load("m")
-	m.options.Base = "missing-ref"
+	m.source.(*backend.Local).Options.Base = "missing-ref"
 	previous := m.comparison
 	cmd := m.activate("m")
 	m.Update(cmd())
-	if m.options.Mode != gitdiff.ModeWorkingTree || m.comparison != previous || m.loading || !strings.Contains(m.message, "failed") {
-		t.Fatalf("failed switch corrupted the current review: %+v, %s", m.options, m.message)
+	if m.mode != gitdiff.ModeWorkingTree || m.comparison != previous || m.loading || !strings.Contains(m.message, "failed") {
+		t.Fatalf("failed switch corrupted the current review: %+v, %s", m.source.(*backend.Local).Options, m.message)
 	}
 }

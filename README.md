@@ -18,7 +18,7 @@ A pull-request-style review experience, right in your terminal. Browse the whole
 - **Review before you commit.** `git review -w` includes staged edits, unstaged edits, and new files Git hasn't tracked yet.
 - **Work the way you like.** Use the keyboard or mouse, with syntax highlighting and automatic light and dark themes.
 
-One binary. Runs locally. No GitHub account or browser needed.
+Local review needs only Git. GitHub PR review also requires an installed, logged-in [GitHub CLI (`gh`)](https://cli.github.com).
 
 ## Get started
 
@@ -107,6 +107,32 @@ git review --stat             # Print a quick change summary
 
 The `base...head` shorthand requires both refs and cannot be combined with another positional ref, `--base`, or `--head`. It uses the same merge-base comparison as the two-ref form.
 
+## Review a GitHub pull request
+
+Install [GitHub CLI](https://cli.github.com) and log in before using remote review:
+
+```sh
+gh auth login
+
+git review https://github.com/owner/repo/pull/918
+git review '#918'                         # PR in the repository identified by origin
+git review 918                            # Local ref first; otherwise origin PR #918
+git review https://github.com/owner/repo 918
+```
+
+Quote `'#918'` so the shell passes it as an argument. A full PR URL works outside a Git checkout. Number-only targets use `git remote get-url origin`, including HTTPS and SSH origins. If origin points to a fork, its PR numbers are used; a full PR URL can select the upstream repository instead. Explicit `--base 918` always treats `918` as a local ref. A local comparison error never silently changes the target to a PR.
+
+GitHub review calls `gh api` to read PR metadata, paginated file diffs, and Viewed states. It never clones, fetches, or checks out a repository. Missing `gh` or an inactive login produces installation/login instructions. Private repositories require access through the active `gh` account. For GitHub Enterprise, log in to the URL's host with `gh auth login --hostname HOST`.
+
+The header shows **GitHub PR** and the repository/PR number. Inline/split views, the file tree, filtering, and folding work as in local review. The PR scope stays fixed; `m` does not switch to local changes.
+
+- Press `v` or click Viewed to update the file's state on GitHub. `[~]` means the update is still saving; a failure restores the previous state and shows the error.
+- Press `r` to reload both the diff and GitHub's Viewed states. `[!]` means GitHub reports new changes since the file was viewed.
+- `--no-state` keeps progress in memory and disables GitHub Viewed reads and writes. `--stat` also performs no Viewed synchronization.
+- While Viewed updates are pending, `r` and `q` ask you to wait and try again after saving. `Ctrl+C` can exit immediately; a request already received by GitHub may still complete.
+
+GitHub supplies fixed patch context, so PR targets do not support custom `--context`, local scope flags, or `--base`/`--head`. PRs exceeding the files API's 3000-file limit are rejected. Binary files, metadata-only changes, and omitted/incomplete patches have an explicit notice; unavailable text is never shown as a complete diff.
+
 ## A few keys go a long way
 
 | Key | What it does |
@@ -128,8 +154,8 @@ Prefer the mouse? Click a file to jump to it, click its checkbox to mark it view
 ## Good to know
 
 - Auto mode checks staged, unstaged, and untracked changes, respecting Git ignore rules. `-w` / `--working-tree` shows current on-disk changes against `HEAD`; a clean worktree stays in this mode with an empty diff. `-c` / `--committed` always shows committed changes. Refreshing with `r` keeps the current scope, even if local changes appear or disappear.
-- Your files and staging area stay as they are. Viewed progress is saved locally under `.git/git-review/`; use `--no-state` for a session without saved progress.
-- Progress belongs to an exact comparison. Refreshing changed content starts a fresh review for the whole comparison; unchanged content keeps its viewed marks.
+- Your files and staging area stay as they are. Local review progress is saved under `.git/git-review/`; use `--no-state` for a session without saved progress.
+- Local progress belongs to an exact comparison. Refreshing changed content starts a fresh review for the whole comparison; unchanged content keeps its viewed marks.
 - Use a terminal at least 90 columns wide for the sidebar. `--no-mouse` restores native terminal text selection; `--no-color` disables colors.
 
 For the full option list, run `git review --help`. To work on the project, run `just` for available tasks or `just check` to verify a change.

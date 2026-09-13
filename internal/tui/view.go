@@ -3,11 +3,12 @@ package tui
 import (
 	"fmt"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
+	"github.com/cross-entropy-ai/git-review/internal/backend"
+	"github.com/cross-entropy-ai/git-review/internal/diff"
 )
 
 func fit(text string, width int) string {
@@ -24,8 +25,8 @@ func (m *Model) View() string {
 	}
 	g := m.layout()
 	c := m.comparison
-	title := "  " + m.bold(m.ink(m.palette.accent, "git review")) + m.ink(m.palette.muted, "  /  "+safeText(filepath.Base(c.Root)))
-	if c.Root == "" {
+	title := "  " + m.bold(m.ink(m.palette.accent, "git review")) + m.ink(m.palette.muted, "  /  "+safeText(m.snapshot.Label))
+	if m.snapshot.Label == "" {
 		title = "  " + m.bold(m.ink(m.palette.accent, "git review"))
 	}
 	if m.loading {
@@ -108,6 +109,12 @@ func (m *Model) View() string {
 			status += " · All files viewed ✓"
 		}
 	}
+	if len(m.visible) > 0 && m.dismissed[c.Files[m.selected].Path] {
+		status += " · Changed since viewed on GitHub"
+	}
+	if m.snapshot.Warning != "" {
+		status = "  " + safeText(m.snapshot.Warning)
+	}
 	if m.message != "" {
 		status = "  " + m.message
 	}
@@ -158,7 +165,7 @@ func (m *Model) controlRow(y int, prefix string) string {
 		if button.key == "?" {
 			fg = m.palette.accent
 		}
-		if button.key == "m" {
+		if y == 0 && (button.key == "m" || button.key == "") {
 			out.WriteString(m.surfaceWithBackground(m.palette.accent, m.palette.selectionBackground, m.bold(label), button.width))
 		} else {
 			out.WriteString(m.surface(fg, label, button.width))
@@ -215,12 +222,9 @@ func (m *Model) sidebar(g geometry) []string {
 	for item := 0; item < m.sidebarCapacity() && m.sideOffset+item < len(m.visible); item++ {
 		index := m.visible[m.sideOffset+item]
 		file := m.comparison.Files[index]
-		fold, box, cursor := "▾", "[ ]", " "
+		fold, box, cursor := "▾", m.viewedBox(file.Path), " "
 		if m.collapsed[file.Path] {
 			fold = "▸"
-		}
-		if m.viewed[file.Path] {
-			box = m.ink(m.palette.green, "[✓]")
 		}
 		bg := ""
 		if index == m.selected {
@@ -288,12 +292,14 @@ func (m *Model) renderRowContent(row row, width int) string {
 	file := m.comparison.Files[row.file]
 	switch row.kind {
 	case 'f':
-		fold, box := "▾", " [ ] Viewed "
+		fold, box := "▾", " "+m.viewedBox(file.Path)+" Viewed "
 		if m.collapsed[file.Path] {
 			fold = "▸"
 		}
-		if m.viewed[file.Path] {
-			box = m.ink(m.palette.green, " [✓] Viewed ")
+		if _, pending := m.pending[file.Path]; pending {
+			box = " " + m.viewedBox(file.Path) + " Saving "
+		} else if m.dismissed[file.Path] {
+			box = " " + m.viewedBox(file.Path) + " Changed "
 		}
 		name := safeText(file.Path)
 		if file.OldPath != "" {
@@ -370,6 +376,8 @@ func (m *Model) emptyRow(y, width int) string {
 			text = "The head matches its merge base."
 			if m.comparison.WorkingTree {
 				text = "Your working tree matches HEAD."
+			} else if m.mode == diff.ModePullRequest {
+				text = "This pull request has no changed files."
 			}
 		}
 	}
@@ -417,11 +425,23 @@ func (m *Model) helpLines() []string {
 		"  Viewed progress is saved locally for this exact comparison.",
 		"  Working tree and staged changes are excluded.",
 	}
-	if !m.persist {
+	if m.snapshot.Persistence == backend.Memory {
 		lines[len(lines)-2] = "  Viewed progress is stored in memory only (--no-state)."
 	}
 	if m.comparison.WorkingTree {
 		lines[len(lines)-1] = "  Staged, unstaged, and untracked files are included; r refreshes."
+	}
+	if m.snapshot.Persistence == backend.Remote {
+		lines[len(lines)-2] = "  Viewed progress syncs with the active GitHub account."
+	}
+	if len(m.source.Modes()) < 2 {
+		for i, line := range lines {
+			if strings.HasPrefix(line, "  m ") {
+				lines[i] = "  PR scope         Local mode switching is unavailable"
+			}
+		}
+		lines[len(lines)-1] = "  [!] Changed since viewed · [~] Saving · --no-state disables sync"
+		lines = append(lines, "  "+safeText(m.snapshot.Title), "  "+safeText(m.snapshot.URL))
 	}
 	return lines
 }
