@@ -23,7 +23,7 @@ func TestCommentFileScopeSelectionAndDeletion(t *testing.T) {
 		t.Fatal("opening comments did not select the current file")
 	}
 	g := m.modalLayout()
-	m.commentMouse(tea.MouseMsg{X: g.x + 2, Y: g.y + 3, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m.commentMouse(tea.MouseMsg{X: g.x + 2, Y: g.y + 4, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	if m.commentIndex != 3 {
 		t.Fatal("mouse selected a hidden comment")
 	}

@@ -383,7 +383,7 @@ func (m *Model) visibleComments() []int {
 			indices = append(indices, i)
 		}
 	}
-	return indices
+	return m.orderComments(indices)
 }
 
 func (m *Model) commentPosition() int {

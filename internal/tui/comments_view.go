@@ -54,11 +54,51 @@ func (m *Model) commentStatus() string {
 	return "  " + commentLocation(m.selectedComment()) + " · c Comment · Shift+↑/↓ Range · Esc Cancel"
 }
 
-func (m *Model) commentListCapacity() int { return max(1, (m.modalLayout().height-3)/2) }
+type commentListRow struct {
+	index int
+	part  int // 0: file divider, 1: comment location, 2: body preview
+}
 
-func (m *Model) commentListStart() int {
-	capacity := m.commentListCapacity()
-	return min(max(0, m.commentPosition()-capacity+1), max(0, len(m.visibleComments())-capacity))
+// Rendering and mouse selection use the same rows, including file dividers.
+// Start every viewport with a divider so scrolling retains the file context.
+func (m *Model) commentListRows() []commentListRow {
+	indices := m.visibleComments()
+	if len(indices) == 0 {
+		return nil
+	}
+	capacity := m.modalLayout().height - 3
+	start, used := max(0, m.commentPosition()), 3
+	for start > 0 {
+		cost := 2
+		if m.notes.items[indices[start-1]].Path != m.notes.items[indices[start]].Path {
+			cost++
+		}
+		if used+cost > capacity {
+			break
+		}
+		used += cost
+		start--
+	}
+	var rows []commentListRow
+	path := ""
+	for pos := start; pos < len(indices); pos++ {
+		index := indices[pos]
+		c := m.notes.items[index]
+		divider := pos == start || c.Path != path
+		cost := 2
+		if divider {
+			cost++
+		}
+		if len(rows)+cost > capacity {
+			break
+		}
+		if divider {
+			rows = append(rows, commentListRow{index: index})
+		}
+		rows = append(rows, commentListRow{index: index, part: 1}, commentListRow{index: index, part: 2})
+		path = c.Path
+	}
+	return rows
 }
 
 func (m *Model) commentFooter() []control {
@@ -172,11 +212,17 @@ func (m *Model) overlayComments(screen []string) []string {
 			scope = "All files"
 		}
 		title = fmt.Sprintf("Comments · %s · %d · g Jump to line", scope, len(indices))
-		start := m.commentListStart()
-		for pos := start; pos < min(len(indices), start+m.commentListCapacity()); pos++ {
-			i := indices[pos]
+		for _, row := range m.commentListRows() {
+			i := row.index
 			c := m.notes.items[i]
-			location := commentLocation(c)
+			if row.part == 0 {
+				label := " ─ " + safeText(c.Path) + " "
+				label = ansi.Truncate(label, width-1, "…")
+				label += strings.Repeat("─", max(0, width-ansi.StringWidth(label)))
+				lines = append(lines, m.surfaceWithBackground(m.palette.accent, m.palette.modal.header, m.bold(label), width))
+				continue
+			}
+			location := strings.TrimPrefix(commentLocation(c), safeText(c.Path)+" · ")
 			if c.RemoteID > 0 {
 				prefix := "@" + safeText(c.Author)
 				if c.ReplyTo > 0 {
@@ -198,7 +244,11 @@ func (m *Model) overlayComments(screen []string) []string {
 				label = m.surfaceWithBackground(m.palette.accent, m.palette.modal.selection, m.bold(" › "+location), width)
 				body = m.surfaceWithBackground(m.palette.foreground, m.palette.modal.selection, body, width)
 			}
-			lines = append(lines, label, body)
+			if row.part == 1 {
+				lines = append(lines, label)
+			} else {
+				lines = append(lines, body)
+			}
 		}
 		if len(indices) == 0 {
 			if !m.commentAllFiles {
@@ -260,9 +310,9 @@ func (m *Model) commentMouse(msg tea.MouseMsg) tea.Cmd {
 			x += len(button.label)
 		}
 	} else if m.commentModal == "list" {
-		index := m.commentListStart() + (msg.Y-g.y-1)/2
-		if indices := m.visibleComments(); index < len(indices) {
-			m.commentIndex = indices[index]
+		index := msg.Y - g.y - 1
+		if rows := m.commentListRows(); index < len(rows) && rows[index].part != 0 {
+			m.commentIndex = rows[index].index
 		}
 	}
 	return nil
