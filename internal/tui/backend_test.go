@@ -75,6 +75,9 @@ func TestRemoteViewedAsyncSuccessFailureAndRefresh(t *testing.T) {
 	if m.viewed["main.go"] || !m.dismissed["main.go"] || !strings.Contains(m.message, "permission denied") || len(m.pending) != 0 {
 		t.Fatal("failed write did not restore prior state")
 	}
+	if !m.hasAlert() || m.alerts[0].title != "Viewed update failed" {
+		t.Fatal("failed Viewed update did not show a confirmation alert")
+	}
 }
 
 func TestRemoteMouseViewedAndNoState(t *testing.T) {

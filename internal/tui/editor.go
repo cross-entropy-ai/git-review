@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/cross-entropy-ai/git-review/internal/diff"
 )
 
 type editorFinishedMsg struct{ err error }
@@ -18,9 +19,13 @@ func (m *Model) openEditor() tea.Cmd {
 		m.message = "Select a file to open in the editor"
 		return nil
 	}
+	if m.mode == diff.ModePullRequest && m.comparison.Root == "" {
+		m.showAlert("Cannot open editor", "GitHub PR reviews have no local working tree.\nOpen a local checkout of this repository to edit files with e.")
+		return nil
+	}
 	command, err := editorCommand(m.ctx, m.comparison.Root, m.comparison.Files[m.selected].Path)
 	if err != nil {
-		m.message = "Cannot open editor: " + safeText(err.Error())
+		m.showAlert("Cannot open editor", err.Error())
 		return nil
 	}
 	// Give terminal editors control of stdin and the screen, then restore the TUI.

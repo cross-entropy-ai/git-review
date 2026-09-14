@@ -126,7 +126,7 @@ GitHub review calls `gh api` to read PR metadata, paginated file diffs, and View
 
 The header shows **GitHub PR** and the repository/PR number. Inline/split views, the file tree, file and text search, and folding work as in local review. The PR scope stays fixed; `m` does not switch to local changes.
 
-- Press `v` or click Viewed to update the file's state on GitHub. `[~]` means the update is still saving; a failure restores the previous state and shows the error.
+- Press `v` or click Viewed to update the file's state on GitHub. `[~]` means the update is still saving; a failure restores the previous state and opens an error dialog for confirmation.
 - Press `r` to reload both the diff and GitHub's Viewed states. `[!]` means GitHub reports new changes since the file was viewed.
 - `--no-state` keeps progress in memory and disables GitHub Viewed reads and writes. `--stat` also performs no Viewed synchronization.
 - While Viewed updates are pending, `r` and `q` ask you to wait and try again after saving. `Ctrl+C` can exit immediately; a request already received by GitHub may still complete.
@@ -158,6 +158,8 @@ Press `f` for an embedded fzf-style file finder; no external `fzf` installation 
 Press `/` to search added, removed, and context lines in all loaded diff hunks. Search is literal and case-insensitive, with live highlights and a match counter. Matches in folded files expand automatically; inline and split views are supported. Press Enter to confirm, then `n` / `p` to navigate matches with wraparound. Esc clears the search and restores `n` / `p` file navigation. While typing a query, `n` and `p` remain ordinary text. This searches the displayed comparison, not unchanged repository content outside its hunks. Press `?` for a scrollable help popup; Esc or `q` closes it and returns to the same review position.
 
 Press `e` to edit the selected file in your local working tree, including when reviewing committed changes. The editor follows Git's settings: `GIT_EDITOR`, `core.editor`, `VISUAL`, then `EDITOR`, with Git's fallback (usually `vi`). Editor arguments such as `code --wait` are supported. After closing the editor, press `r` to refresh. Files missing locally and remote PR comparisons without a local working tree cannot be opened.
+
+Errors such as an unavailable editor, a failed refresh, or a failed Viewed update appear in a confirmation popup. Press Enter, click **Enter OK**, or press Esc to acknowledge and return to your review. Long details can be scrolled; concurrent errors are shown one at a time so none are overwritten by status updates.
 
 ## Good to know
 

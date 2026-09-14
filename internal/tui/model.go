@@ -78,6 +78,8 @@ type Model struct {
 	searchAnchor row
 	help         bool
 	helpOffset   int
+	alerts       []alert
+	alertOffset  int
 	loading      bool
 	message      string
 }
@@ -111,7 +113,7 @@ func (m *Model) install(s *backend.Snapshot) {
 		m.collapsed[path] = viewed
 	}
 	if s.Warning != "" {
-		m.message = safeText(s.Warning)
+		m.showAlert("Review warning", s.Warning)
 	}
 	m.rebuild()
 	m.updateFileMatches()
@@ -127,19 +129,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
 		m.clampPicker()
 		m.helpOffset = min(m.helpOffset, max(0, len(m.helpContent())-m.helpCapacity()))
+		m.clampAlert()
 		m.clampOffset()
 		m.ensureSelectedVisible()
 	case loadedMsg:
 		m.loading = false
 		if msg.err != nil {
-			m.message = "Review failed: " + safeText(msg.err.Error())
+			m.showAlert("Review failed", msg.err.Error())
 		} else {
 			m.message = "Refreshed comparison"
 			m.install(msg.snapshot)
 		}
 	case editorFinishedMsg:
 		if msg.err != nil {
-			m.message = "Editor failed: " + safeText(msg.err.Error())
+			m.showAlert("Editor failed", msg.err.Error())
 		} else {
 			m.message = "Editor closed; press r to refresh the comparison"
 		}
@@ -154,7 +157,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delete(m.pending, msg.path)
 		if msg.err != nil {
 			m.viewed[msg.path], m.collapsed[msg.path], m.dismissed[msg.path] = previous.viewed, previous.collapsed, previous.dismissed
-			m.message = "Viewed update failed for " + safeText(msg.path) + ": " + safeText(msg.err.Error())
+			m.showAlert("Viewed update failed", msg.path+": "+msg.err.Error())
 			m.rebuild()
 		} else {
 			m.message = "Viewed state saved for " + safeText(msg.path)
@@ -181,6 +184,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		key := msg.String()
 		if key == "ctrl+c" {
 			return m, tea.Quit
+		}
+		if m.hasAlert() {
+			m.alertKey(msg)
+			return m, nil
 		}
 		if m.picking {
 			m.pickerKey(msg)

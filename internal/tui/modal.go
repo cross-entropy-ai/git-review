@@ -17,14 +17,18 @@ const (
 )
 
 func (m *Model) modalEdge(title string, width int, top bool) string {
+	return m.tintedModalEdge(title, width, top, m.palette.accent, m.palette.modal.border)
+}
+
+func (m *Model) tintedModalEdge(title string, width int, top bool, accent, border string) string {
 	left, right, bg := "╰", "╯", m.palette.modal.background
 	inside := strings.Repeat("─", max(0, width-2))
 	if top {
 		left, right, bg = "╭", "╮", m.palette.modal.header
-		label := "─ " + m.bold(m.ink(m.palette.accent, title)) + " "
+		label := "─ " + m.bold(m.ink(accent, title)) + " "
 		inside = fit(label+strings.Repeat("─", max(0, width-2-ansi.StringWidth(label))), width-2)
 	}
-	return m.surfaceWithBackground(m.palette.modal.border, bg, left+inside+right, width)
+	return m.surfaceWithBackground(border, bg, left+inside+right, width)
 }
 
 func (m *Model) styleHelpLine(line string) string {
@@ -68,6 +72,9 @@ func (m *Model) helpContent() []string {
 // Compose the same floating frame over the existing screen for every modal.
 // ANSI-aware slicing preserves cell widths and syntax styles behind the frame.
 func (m *Model) overlayModal(screen []string) []string {
+	if m.hasAlert() {
+		return m.overlayAlert(screen)
+	}
 	g := m.modalLayout()
 	width := g.width - 2
 	title := "Help"
@@ -126,6 +133,10 @@ func (m *Model) overlayModal(screen []string) []string {
 		frame = append(frame, m.surfaceWithBackground(m.palette.foreground, m.palette.modal.background, body, g.width))
 	}
 	frame = append(frame, m.modalEdge("", g.width, false))
+	return m.overlayFrame(screen, g, frame)
+}
+
+func (m *Model) overlayFrame(screen []string, g modalGeometry, frame []string) []string {
 	if m.color {
 		for i, line := range screen {
 			screen[i] = m.surface(m.palette.modal.backdrop, ansi.Strip(line), m.width)

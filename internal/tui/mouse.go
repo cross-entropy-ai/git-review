@@ -10,6 +10,10 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if m.width < 45 || m.height < 12 {
 		return nil
 	}
+	if m.hasAlert() {
+		m.alertMouse(msg)
+		return nil
+	}
 	if m.help || m.picking {
 		m.modalMouse(msg)
 		return nil

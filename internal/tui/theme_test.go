@@ -86,6 +86,8 @@ func TestThemeTextContrast(t *testing.T) {
 			"selected rename": {p.foreground, p.modal.selection},
 			"picker added":    {p.green, p.modal.selection},
 			"picker deleted":  {p.red, p.modal.selection},
+			"alert title":     {p.red, p.modal.header},
+			"alert button":    {p.modal.background, p.red},
 			"search active":   {p.headerBackground, p.accent},
 			"search other":    {p.foreground, p.selectionBackground},
 			"added code":      {p.foreground, p.addedBackground},

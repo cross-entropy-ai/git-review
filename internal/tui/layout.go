@@ -81,7 +81,7 @@ func (m *Model) controls() []control {
 		{label: " / Search ", key: "/"},
 	}
 	footerLimit := m.width - rightInset
-	if m.help || m.picking {
+	if m.help || m.picking || m.hasAlert() {
 		buttons = nil
 	} else if m.searching {
 		buttons = []control{{label: " Enter Done ", key: "enter"}, {label: " Esc Clear ", key: "esc"}}

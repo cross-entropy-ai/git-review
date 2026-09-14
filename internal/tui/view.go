@@ -125,7 +125,7 @@ func (m *Model) View() string {
 	}
 	out = append(out, m.surface(m.palette.muted, fit(status, m.width-rightInset-ansi.StringWidth(position))+position, m.width))
 	out = append(out, m.controlRow(m.height-1, ""))
-	if m.help || m.picking {
+	if m.help || m.picking || m.hasAlert() {
 		out = m.overlayModal(out)
 	}
 	return strings.Join(out, "\n")
