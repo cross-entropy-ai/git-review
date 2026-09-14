@@ -71,11 +71,11 @@ func TestFoldViewedAndNavigation(t *testing.T) {
 	if m.viewed["main.go"] || m.collapsed["main.go"] {
 		t.Fatal("unviewed did not expand")
 	}
-	press(m, "C")
+	press(m, "z")
 	if len(m.rows) != 6 {
 		t.Fatalf("collapse all left %d rows", len(m.rows))
 	}
-	press(m, "E")
+	press(m, "z")
 	if len(m.rows) != expanded {
 		t.Fatal("expand all failed")
 	}
@@ -204,7 +204,7 @@ func TestArrowNavigationWhenDiffFits(t *testing.T) {
 		m := sampleModel(false)
 		m.Update(tea.WindowSizeMsg{Width: 120, Height: 150})
 		if folded {
-			press(m, "C")
+			press(m, "z")
 		}
 		for _, want := range []int{1, 2, 2} {
 			press(m, "down")
@@ -244,7 +244,7 @@ func TestScrollBoundaryReachesFilesBelowViewportTop(t *testing.T) {
 
 func TestScrollDirectionAfterSelectingVisibleFile(t *testing.T) {
 	m := sampleModel(false)
-	press(m, "C")
+	press(m, "z")
 	m.collapsed["last.txt"] = false
 	m.rebuild()
 	// All headers are visible, but the last file extends below the viewport.

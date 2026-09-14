@@ -16,6 +16,7 @@ A pull-request-style review experience, right in your terminal. Browse the whole
 - **Make progress you can see.** Mark a file viewed to fold it and move on. Come back later and pick up the same review where you left off.
 - **Find your way through large diffs.** Switch between a file list and a directory tree, find files with fuzzy search, search diff text, and collapse files you've already read.
 - **Review before you commit.** `git review -w` includes staged edits, unstaged edits, and new files Git hasn't tracked yet.
+- **Keep actionable notes.** Comment on individual lines or ranges, then export your review as Markdown with paths, line numbers, and code excerpts.
 - **Work the way you like.** Use the keyboard or mouse, with syntax highlighting and automatic light and dark themes.
 
 Local review needs only Git. GitHub PR review also requires an installed, logged-in [GitHub CLI (`gh`)](https://cli.github.com).
@@ -140,12 +141,16 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 | `↑` / `↓` or `j` / `k` | Scroll and navigate files |
 | `n` / `p` | Jump to the next / previous file, or text match when search is active |
 | `Space` | Fold or unfold the selected file |
+| `z` | Toggle all files collapsed / expanded |
 | `t` | Toggle Tree/List |
 | `s` | Toggle inline / split diff (old on the left, new on the right) |
 | `e` | Open the selected local file in the default editor |
 | `v` | Mark viewed, fold, and move on |
 | `f` | Open the fuzzy file finder popup |
 | `/` | Search text across the current comparison's diff |
+| `c` | Select a code line for a comment; press `c` again to write |
+| `C` | Browse, edit, delete, or jump to saved comments |
+| `x` | Export comments as Markdown |
 | `Tab` | Switch between the sidebar and diff |
 | `m` | Toggle Working tree / Committed |
 | `r` | Refresh the review |
@@ -160,6 +165,22 @@ Press `/` to search added, removed, and context lines in all loaded diff hunks. 
 Press `e` to edit the selected file in your local working tree, including when reviewing committed changes. The editor follows Git's settings: `GIT_EDITOR`, `core.editor`, `VISUAL`, then `EDITOR`, with Git's fallback (usually `vi`). Editor arguments such as `code --wait` are supported. After closing the editor, press `r` to refresh. Files missing locally and remote PR comparisons without a local working tree cannot be opened.
 
 Errors such as an unavailable editor, a failed refresh, or a failed Viewed update appear in a confirmation popup. Press Enter, click **Enter OK**, or press Esc to acknowledge and return to your review. Long details can be scrolled; concurrent errors are shown one at a time so none are overwritten by status updates.
+
+## Comment on code and export a review
+
+Press `c` to place a cursor on a source line in the selected file. Move with `j` / `k` or the arrow keys, then press `c` or Enter to open the comment editor. You can also click a code line and press `c`. Lines with saved comments have a `●` marker; the selected line uses `▸`.
+
+For a multiline comment, use **Shift+↑/↓** to start or extend a selection automatically, or Shift-click another line. Ordinary arrows or `j` / `k` return to single-line movement. A range stays within the same file, diff hunk, and old/new side so it never includes undisplayed code. In split view, clicking the left or right cell selects that side; Tab switches sides for a single line when both exist. Deleted lines are anchored to the old file; added lines use the new file. Context lines can use either side. Binary files and unavailable patches cannot receive line comments.
+
+Write in the popup, using Enter for a newline and **Ctrl+S** to save locally, or directly to GitHub when reviewing a PR. The PR button is labeled **Ctrl+S GitHub**. Chinese text, bracketed paste, arrows, Home/End, Backspace/Delete, and Ctrl+U (clear input) are supported. Esc cancels the draft. Saving an empty comment is rejected, and a failed save keeps the draft open for retry. Selecting an already commented local range opens its existing note for editing. In PR review, `c` starts a new comment; use `C` to open existing discussions.
+
+Press `C` to browse the comments for this comparison, including existing GitHub line comments and replies in PR review. Use `j` / `k` to select, Enter to edit, `g` to jump to the line, and `d` followed by Enter to delete (Esc cancels deletion). Press `r` in the list to toggle **Resolve / Unresolve**; resolved comments remain available to read, edit, and export. Press `x` from the review or this list to export Markdown. The export popup accepts a filename or absolute path; relative paths use the local repository root, or the current directory for a remote PR. Existing files are never overwritten: choose another name. The report groups notes by file and includes old/new line ranges, source excerpts, comparison revisions, authors and GitHub comment URLs when available, and Markdown comment text. Unsynced edits are labeled separately.
+
+Local review comments belong to an exact comparison and live beside viewed progress in `.git/git-review/*.comments.json`. They are restored when you reopen that comparison and kept separate from Viewed state. A changed comparison starts a separate set of local notes; resolved/unresolved status is saved with each note and included in Markdown exports. Export before refreshing a changed working tree if you need its current notes. With `--no-state`, notes stay in memory for the session, GitHub comment reads and writes are disabled, and Markdown export remains available.
+
+In PR review, existing line comments load from GitHub, showing their authors and replies. `Ctrl+S` creates or updates the comment on GitHub immediately; this publishes an individual comment, not a pending batch review. From `C`, use `a` to reply to the selected discussion, Enter to edit, `r` to resolve/unresolve the entire discussion (including its replies), or `d` and Enter to delete from GitHub. GitHub enforces access permissions; editing is limited to the comment author. Missing permissions, rejected line ranges, changed PR revisions, account changes, and network errors open an error popup. A failed save keeps the editor and a local draft, while a failed deletion or resolve operation keeps the comment and its previous status. Drafts and cached comments live under `git-review/comments/` in the OS user configuration directory.
+
+Press `r` from the review to reload GitHub comments and Viewed state. Outdated comments remain readable, replyable, and exportable, but are not attached to unrelated current lines. Refresh preserves unsynced edits. While a comment operation is in flight, its editor stays open and duplicate saves are ignored. Requests are not automatically retried: if a connection failure leaves the result uncertain, refresh and check GitHub before retrying.
 
 ## Good to know
 

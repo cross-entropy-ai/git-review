@@ -91,6 +91,9 @@ func (f *fakeGitHub) run(ctx context.Context, input []byte, args ...string) ([]b
 		}}}})
 	}
 	endpoint := args[len(args)-1]
+	if strings.Contains(endpoint, "/comments?") {
+		return encoded([]any{})
+	}
 	if strings.Contains(endpoint, "/files?") {
 		page := 0
 		fmt.Sscanf(endpoint, "repos/owner/repo/pulls/918/files?per_page=100&page=%d", &page)

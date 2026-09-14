@@ -33,6 +33,7 @@ func editQuery(query string, msg tea.KeyMsg) string {
 }
 
 func (m *Model) openSearch() {
+	m.lineSelecting, m.rangeSelecting = false, false
 	m.searching, m.fileFocus, m.dragging = true, false, ""
 	m.searchAnchor = row{file: m.selected}
 	if m.offset < len(m.rows) && m.rows[m.offset].file == m.selected {

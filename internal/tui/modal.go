@@ -75,6 +75,9 @@ func (m *Model) overlayModal(screen []string) []string {
 	if m.hasAlert() {
 		return m.overlayAlert(screen)
 	}
+	if m.commentModal != "" {
+		return m.overlayComments(screen)
+	}
 	g := m.modalLayout()
 	width := g.width - 2
 	title := "Help"

@@ -1,4 +1,4 @@
-// Package review stores viewed-file progress for an exact comparison snapshot.
+// Package review stores viewed progress and local comments for an exact comparison.
 package review
 
 import (
@@ -42,6 +42,10 @@ func Save(path string, viewed map[string]bool) error {
 	if err != nil {
 		return err
 	}
+	return saveAtomic(path, data)
+}
+
+func saveAtomic(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}

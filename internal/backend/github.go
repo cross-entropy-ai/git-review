@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cross-entropy-ai/git-review/internal/diff"
+	"github.com/cross-entropy-ai/git-review/internal/review"
 )
 
 type GitHub struct {
@@ -96,6 +97,21 @@ func (g *GitHub) Load(parent context.Context, mode diff.Mode) (*Snapshot, error)
 			}
 		}
 	}
+	var comments []review.Comment
+	commentError := ""
+	if g.Persist {
+		comments, err = g.comments(ctx)
+		if err == nil && len(comments) > 0 {
+			var threads map[int64]reviewThread
+			threads, err = g.reviewThreads(ctx, p.NodeID, p.revision())
+			if err == nil {
+				attachThreads(comments, threads)
+			}
+		}
+		if err != nil {
+			commentError = err.Error()
+		}
+	}
 	// REST pagination and GraphQL are separate reads. Reject a moving target.
 	latest, err := g.metadata(ctx)
 	if err != nil {
@@ -122,6 +138,7 @@ func (g *GitHub) Load(parent context.Context, mode diff.Mode) (*Snapshot, error)
 	if g.Persist {
 		s.Persistence = Remote
 	}
+	s.Comments, s.CommentsError = comments, commentError
 	return s, nil
 }
 

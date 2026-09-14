@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/cross-entropy-ai/git-review/internal/diff"
+	"github.com/cross-entropy-ai/git-review/internal/review"
 )
 
 type ViewedState string
@@ -37,8 +38,20 @@ type Snapshot struct {
 	Persistence Persistence
 	Warning     string
 	// RemoteID identifies the PR on GitHub; Revision also guards base changes.
-	RemoteID string
-	Revision string
+	RemoteID      string
+	Revision      string
+	Comments      []review.Comment
+	CommentsError string
+}
+
+// CommentBackend is available for PRs; local backends keep their notes on disk.
+type CommentBackend interface {
+	SaveComment(context.Context, *Snapshot, review.Comment) (review.Comment, error)
+	DeleteComment(context.Context, *Snapshot, review.Comment) error
+}
+
+type ThreadBackend interface {
+	SetThreadResolved(context.Context, *Snapshot, review.Comment, bool) (review.Comment, error)
 }
 
 type Backend interface {

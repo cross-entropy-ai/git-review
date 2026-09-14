@@ -61,9 +61,21 @@ func (m *Model) controls() []control {
 		right(0, mode)
 	}
 	searchWidth := m.width - 2
+	commentButtons := []control{{label: " c Add comment ", key: "c"}, {label: " C Comments ", key: "C"}, {label: " x Export ", key: "x"}}
 	if m.width >= 90 {
-		right(2, control{label: " C Collapse ", key: "C"}, control{label: " E Expand ", key: "E"})
-		searchWidth = m.width - 26
+		label := " z Collapse all "
+		if m.allCollapsed() {
+			label = " z Expand all "
+		}
+		commentButtons = append(commentButtons, control{label: label, key: "z"})
+	} else if m.width < 70 {
+		commentButtons = commentButtons[:2]
+	}
+	right(2, commentButtons...)
+	for _, c := range controls {
+		if c.y == 2 {
+			searchWidth = min(searchWidth, c.x-2)
+		}
 	}
 	controls = append(controls, control{x: 1, y: 2, width: searchWidth, key: "/"})
 	modeLabel := " s Split "
@@ -81,8 +93,10 @@ func (m *Model) controls() []control {
 		{label: " / Search ", key: "/"},
 	}
 	footerLimit := m.width - rightInset
-	if m.help || m.picking || m.hasAlert() {
+	if m.help || m.picking || m.hasAlert() || m.commentModal != "" {
 		buttons = nil
+	} else if m.lineSelecting {
+		buttons = []control{{label: " c Write ", key: "c"}, {label: " Shift+↑/↓ Range "}, {label: " Tab Side ", key: "tab"}, {label: " Esc Cancel ", key: "esc"}}
 	} else if m.searching {
 		buttons = []control{{label: " Enter Done ", key: "enter"}, {label: " Esc Clear ", key: "esc"}}
 	} else {

@@ -45,7 +45,7 @@ Options:
   --stat              Print file and total statistics without opening the TUI
   --theme MODE        Color theme: auto, light, or dark (default auto)
   --no-color          Disable color and syntax highlighting (also NO_COLOR)
-  --no-state          Keep progress in memory; disable local saves and GitHub sync
+  --no-state          Keep progress and comments in memory; disable saves and sync
   --no-mouse          Disable mouse reporting for native terminal text selection
   --version           Print version
   -h, --help          Show this help
@@ -54,7 +54,8 @@ Options:
 With --auto, base/head refs apply only when there are no local changes.
 PR targets cannot use local scope flags or --base/--head; GitHub fixes context.
 
-Keys: m review mode · Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed · ? help · q quit
+Keys: m review mode · Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed
+      c line comment · C comments · x export Markdown · ? help · q quit
 Mouse: click files, fold arrows, viewed boxes, and toolbar; scroll or drag rails.
 The worktree and index are untouched. In PR review, v syncs Viewed to GitHub.
 `

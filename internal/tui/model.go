@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cross-entropy-ai/git-review/internal/backend"
 	"github.com/cross-entropy-ai/git-review/internal/diff"
+	"github.com/cross-entropy-ai/git-review/internal/review"
 )
 
 type row struct {
@@ -82,6 +83,18 @@ type Model struct {
 	alertOffset  int
 	loading      bool
 	message      string
+
+	notes                         *commentState
+	commentStates                 map[string]*commentState
+	lineSelecting, rangeSelecting bool
+	lineCursor                    int
+	commentLine, rangeAnchor      lineRef
+	commentModal, commentReturn   string
+	commentIndex                  int
+	commentDraft                  review.Comment
+	noteInput                     []rune
+	noteCursor                    int
+	commentSaving                 bool
 }
 
 func New(s *backend.Snapshot, source backend.Backend, color bool, theme Theme) *Model {
@@ -97,6 +110,7 @@ func (m *Model) install(s *backend.Snapshot) {
 	previousViewed := m.viewed
 	sameSnapshot := m.snapshot != nil && m.snapshot.Key == s.Key
 	m.snapshot, m.comparison, m.mode = s, s.Comparison, s.Mode
+	m.installComments()
 	m.viewed, m.dismissed = make(map[string]bool), make(map[string]bool)
 	m.collapsed = make(map[string]bool)
 	m.highlights = make(map[highlightKey][]string)
@@ -140,6 +154,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.message = "Refreshed comparison"
 			m.install(msg.snapshot)
 		}
+	case commentSavedMsg:
+		m.finishComment(msg)
 	case editorFinishedMsg:
 		if msg.err != nil {
 			m.showAlert("Editor failed", msg.err.Error())
@@ -178,7 +194,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(commands...)
 		}
 		// Bracketed paste is text input, never a stream of review shortcuts.
-		if msg.Paste && !m.picking && !m.searching {
+		if msg.Paste && !m.picking && !m.searching && m.commentModal == "" {
 			return m, nil
 		}
 		key := msg.String()
@@ -188,6 +204,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.hasAlert() {
 			m.alertKey(msg)
 			return m, nil
+		}
+		if m.commentModal != "" {
+			return m, m.commentKey(msg)
 		}
 		if m.picking {
 			m.pickerKey(msg)
@@ -213,7 +232,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.message = ""
+		if m.lineSelecting {
+			m.selectionKey(msg)
+			return m, nil
+		}
 		switch key {
+		case "shift+up", "shift+down":
+			m.beginComment()
+			if m.lineSelecting {
+				m.selectionKey(msg)
+			}
+		case "c":
+			m.beginComment()
+		case "C":
+			m.openComments()
+		case "x":
+			m.openExport()
 		case "q":
 			if len(m.pending) > 0 {
 				m.message = "Viewed updates are still saving; wait, or Ctrl+C to exit"
@@ -305,9 +339,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.toggleFold()
 			}
-		case "C", "E":
+		case "z":
+			collapse := !m.allCollapsed()
 			for _, i := range m.visible {
-				m.collapsed[m.comparison.Files[i].Path] = key == "C"
+				m.collapsed[m.comparison.Files[i].Path] = collapse
 			}
 			m.rebuild()
 			m.jumpSelected()
@@ -342,6 +377,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // Mode and progress are replaced only after the backend finishes successfully.
 func (m *Model) reload(mode diff.Mode) tea.Cmd {
+	if m.commentSaving {
+		m.message = "Wait for the GitHub comment operation to finish"
+		return nil
+	}
 	if m.loading {
 		return nil
 	}
@@ -423,6 +462,14 @@ func (m *Model) rebuild() {
 		m.selected = m.visible[0]
 	}
 	m.rebuildTree()
+	if m.lineSelecting {
+		for i := range m.rows {
+			if ref, ok := m.lineAt(i, m.commentLine.side); ok && ref == m.commentLine {
+				m.lineCursor = i
+				break
+			}
+		}
+	}
 	m.clampOffset()
 	m.ensureSelectedVisible()
 }
@@ -526,6 +573,15 @@ func (m *Model) toggleFold() {
 	m.collapsed[path] = !m.collapsed[path]
 	m.rebuild()
 	m.jumpSelected()
+}
+
+func (m *Model) allCollapsed() bool {
+	for _, i := range m.visible {
+		if !m.collapsed[m.comparison.Files[i].Path] {
+			return false
+		}
+	}
+	return len(m.visible) > 0
 }
 
 func (m *Model) toggleViewed(advance bool) tea.Cmd {

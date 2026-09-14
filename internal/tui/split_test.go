@@ -129,11 +129,11 @@ func TestSplitTogglePreservesReviewAndPosition(t *testing.T) {
 	}
 	press(m, "esc")
 	press(m, "s")
-	press(m, "C")
+	press(m, "z")
 	if len(m.rows) != 6 {
 		t.Fatal("split collapse failed")
 	}
-	press(m, "E")
+	press(m, "z")
 	selected := m.selected
 	press(m, "n")
 	if m.selected != selected+1 {

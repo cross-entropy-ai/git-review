@@ -115,6 +115,11 @@ func (m *Model) renderSplitCell(row row, index int, newSide bool, width int) str
 	if m.currentMatch(row.file, row.hunk, index) {
 		marker = "›"
 	}
+	side := "old"
+	if newSide {
+		side = "new"
+	}
+	marker, bg = m.commentLineStyle(row.file, row.hunk, index, side, marker, bg)
 	gutter := m.ink(fg, fmt.Sprintf("%4s %c %s ", lineNumber, line.Kind, marker))
 	available := max(0, width-ansi.StringWidth(gutter))
 	code := ansi.Cut(m.highlightSearch(m.highlights[key][index], row.file, row.hunk, index), m.xOffset, m.xOffset+available)

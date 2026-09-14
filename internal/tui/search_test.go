@@ -30,7 +30,7 @@ func TestSearchOccurrencesNavigationAndFoldedFiles(t *testing.T) {
 		if split {
 			press(m, "s")
 		}
-		press(m, "C")
+		press(m, "z")
 		m.viewed["目录/b.go"] = true
 		press(m, "/needle")
 		if !m.searching || len(m.matches) != 4 || m.matchIndex != 0 || m.collapsed["a.go"] {

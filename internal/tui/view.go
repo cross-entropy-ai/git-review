@@ -118,6 +118,12 @@ func (m *Model) View() string {
 	if m.message != "" {
 		status = "  " + m.message
 	}
+	if m.lineSelecting && m.message == "" {
+		status = m.commentStatus()
+	}
+	if len(m.notes.items) > 0 && !m.lineSelecting && m.message == "" {
+		status += fmt.Sprintf(" · %d comments", len(m.notes.items))
+	}
 	position := ""
 	if !m.help && len(m.rows) > 0 {
 		percent := min(100, (m.offset+g.bodyHeight)*100/len(m.rows))
@@ -125,7 +131,7 @@ func (m *Model) View() string {
 	}
 	out = append(out, m.surface(m.palette.muted, fit(status, m.width-rightInset-ansi.StringWidth(position))+position, m.width))
 	out = append(out, m.controlRow(m.height-1, ""))
-	if m.help || m.picking || m.hasAlert() {
+	if m.help || m.picking || m.hasAlert() || m.commentModal != "" {
 		out = m.overlayModal(out)
 	}
 	return strings.Join(out, "\n")
@@ -364,6 +370,19 @@ func (m *Model) renderRowContent(row row, width int) string {
 		if m.currentMatch(row.file, row.hunk, row.line) {
 			marker = "›"
 		}
+		side := "new"
+		if line.Kind == '-' {
+			side = "old"
+		}
+		// Context lines can carry notes on either side in inline view.
+		if line.Kind == ' ' {
+			other := "old"
+			if m.lineSelecting && m.commentLine.side == "old" {
+				side, other = "old", "new"
+			}
+			marker, bg = m.commentLineStyle(row.file, row.hunk, row.line, other, marker, bg)
+		}
+		marker, bg = m.commentLineStyle(row.file, row.hunk, row.line, side, marker, bg)
 		gutter := m.ink(signColor, fmt.Sprintf("%4s %4s %c %s ", oldNumber, newNumber, line.Kind, marker))
 		available := max(0, width-ansi.StringWidth(gutter))
 		code = ansi.Cut(code, m.xOffset, m.xOffset+available)
@@ -398,10 +417,11 @@ func (m *Model) helpLines() []string {
 		"  Click ▾ / ▸      Fold / unfold a file",
 		"  Click [ ]        Toggle viewed without advancing",
 		"  Click diff title Fold / unfold; click Viewed to mark",
+		"  Click code       Select a line for a comment; Shift-click a range",
 		"  Wheel            Scroll the pane under the pointer",
 		"  Shift + wheel    Scroll code horizontally",
 		"  Drag scrollbar   Jump through files or diff",
-		"  Toolbar          Click Mode, Search, Collapse, Expand, Refresh, Help",
+		"  Toolbar          Click Mode, Search, Comments, Fold, Refresh, Help",
 		"", "  KEYBOARD",
 		"  Tab              Switch focus between files and diff",
 		"  t                Toggle flat file list / directory tree",
@@ -411,7 +431,7 @@ func (m *Model) helpLines() []string {
 		"  Space / Enter    Fold / unfold the selected file",
 		"  e                Open selected local file in the default editor",
 		"  v                Toggle viewed; fold and advance when viewed",
-		"  C / E            Collapse / expand all files",
+		"  z                Toggle all files collapsed / expanded",
 		"  f                Find a file in a fuzzy search popup",
 		"  /                Search all diff text (literal, case-insensitive)",
 		"  Enter / Esc      Confirm search for n/p navigation / clear search",
@@ -423,6 +443,23 @@ func (m *Model) helpLines() []string {
 		"  r                Reload review scope and diff",
 		"  ?                Toggle floating help",
 		"  q / Ctrl+C       Quit (q closes help first)", "",
+		"  LOCAL COMMENTS",
+		"  c                Select a diff line; c / Enter again writes a note",
+		"  j / k · ↑ / ↓    Move the line cursor while selecting",
+		"  Shift + ↑ / ↓    Start or extend a line range automatically",
+		"  Tab              Switch old / new side while selecting one line",
+		"  Esc              Leave line selection or cancel the draft",
+		"  Ctrl+S           Save comment (syncs to GitHub in PRs)",
+		"  Enter            Insert a newline in the comment editor",
+		"  C                Open comments; Enter edits, d confirms deletion",
+		"  g (in comments)  Jump to the selected comment's source line",
+		"  x                Export this comparison's comments as Markdown",
+		"  ● / ▸            Commented line / selected line",
+		"  a (in comments)  Reply to a GitHub comment's discussion",
+		"  r (in comments)  Resolve / unresolve; keeps comments and replies",
+		"  PR comments sync with GitHub; failures retain a local draft.",
+		"  --no-state keeps notes in memory and disables GitHub comment sync.",
+		"",
 		"  TREE (with sidebar focus)",
 		"  j / k · ↑ / ↓    Navigate directories and files",
 		"  h / l · ← / →    Close / open directory; left goes to parent",

@@ -76,11 +76,11 @@ func TestMouseFileCardAndToolbar(t *testing.T) {
 		t.Fatal("file card viewed button failed")
 	}
 	press(m, "esc")
-	clickText(t, m, "C Collapse")
+	clickText(t, m, "z Collapse all")
 	if len(m.rows) != 6 {
 		t.Fatal("collapse toolbar action failed")
 	}
-	clickText(t, m, "E Expand")
+	clickText(t, m, "z Expand all")
 	if len(m.rows) <= 6 {
 		t.Fatal("expand toolbar action failed")
 	}
@@ -171,7 +171,7 @@ func TestMouseResizingEmptyResultsAndHelp(t *testing.T) {
 
 func TestMouseWheelNavigatesDiffThatFits(t *testing.T) {
 	m := sampleModel(false)
-	press(m, "C")
+	press(m, "z")
 	x := m.layout().diffX + 10
 	m.Update(tea.MouseMsg{X: x, Y: contentTop + 1, Button: tea.MouseButtonWheelDown})
 	if m.selected != 1 || m.offset != 0 {
@@ -181,7 +181,7 @@ func TestMouseWheelNavigatesDiffThatFits(t *testing.T) {
 	if m.collapsed["docs/中文.md"] {
 		t.Fatal("wheel selection could not be unfolded")
 	}
-	press(m, "C")
+	press(m, "z")
 	m.Update(tea.MouseMsg{X: x, Y: contentTop + 1, Button: tea.MouseButtonWheelUp})
 	if m.selected != 0 || m.offset != 0 {
 		t.Fatal("wheel did not select the previous file in a fully visible diff")

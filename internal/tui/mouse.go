@@ -14,6 +14,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		m.alertMouse(msg)
 		return nil
 	}
+	if m.commentModal != "" {
+		return m.commentMouse(msg)
+	}
 	if m.help || m.picking {
 		m.modalMouse(msg)
 		return nil
@@ -41,7 +44,12 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 				if msg.Shift || msg.Button == tea.MouseButtonWheelLeft || msg.Button == tea.MouseButtonWheelRight {
 					m.xOffset = max(0, m.xOffset+delta*4)
 				} else {
-					m.scroll(delta)
+					if m.lineSelecting {
+						m.rangeSelecting = false
+						m.moveCommentLine(delta)
+					} else {
+						m.scroll(delta)
+					}
 				}
 			}
 		}
@@ -65,9 +73,13 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		if m.searching && button.key != "esc" && button.key != "enter" {
 			m.searching = false
 		}
+		if m.lineSelecting && msg.Y != m.height-1 && button.key != "c" && button.key != "C" && button.key != "x" {
+			m.lineSelecting, m.rangeSelecting = false, false
+		}
 		return m.activate(button.key)
 	}
 	if msg.Y == contentTop-1 {
+		m.lineSelecting, m.rangeSelecting = false, false
 		m.fileFocus = g.sideWidth > 0 && msg.X < g.sideWidth
 		return nil
 	}
@@ -81,12 +93,14 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	if msg.X == m.width-1 {
+		m.lineSelecting, m.rangeSelecting = false, false
 		m.dragging = "diff"
 		m.fileFocus = false
 		m.dragScroll(msg.Y)
 		return nil
 	}
 	if g.sideWidth > 0 && msg.X > 0 && msg.X < g.sideWidth-1 {
+		m.lineSelecting, m.rangeSelecting = false, false
 		item := (msg.Y - contentTop) / m.sidebarRowHeight()
 		index := m.sideOffset + item
 		if item >= m.sidebarCapacity() || index >= m.sidebarCount() {
@@ -126,6 +140,31 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 			return nil
 		}
 		row := m.rows[index]
+		if row.kind == 'l' || row.kind == 'd' {
+			if m.loading {
+				return nil
+			}
+			side := ""
+			if row.kind == 'd' {
+				side = "old"
+				if msg.X >= g.diffX+1+fileFrameInset+(g.diffWidth-2*fileFrameInset-1)/2+1 {
+					side = "new"
+				}
+			}
+			if ref, ok := m.lineAt(index, side); ok {
+				if msg.Shift && m.lineSelecting && ref.file == m.commentLine.file && ref.hunk == m.commentLine.hunk && ref.side == m.commentLine.side {
+					if !m.rangeSelecting {
+						m.rangeAnchor = m.commentLine
+					}
+					m.rangeSelecting = true
+				} else {
+					m.rangeSelecting = false
+				}
+				m.selectCommentLine(index, ref)
+			}
+			return nil
+		}
+		m.lineSelecting, m.rangeSelecting = false, false
 		m.selected, m.fileFocus = row.file, false
 		m.ensureSelectedVisible()
 		if row.kind == 'f' {
