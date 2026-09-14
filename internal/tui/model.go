@@ -125,6 +125,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.message = "Refreshed comparison"
 			m.install(msg.snapshot)
 		}
+	case editorFinishedMsg:
+		if msg.err != nil {
+			m.message = "Editor failed: " + safeText(msg.err.Error())
+		} else {
+			m.message = "Editor closed; press r to refresh the comparison"
+		}
 	case viewedMsg:
 		if msg.key != m.snapshot.Key {
 			return m, nil
@@ -292,6 +298,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				return m, m.toggleViewed(true)
 			}
+		case "e":
+			return m, m.openEditor()
 		case "]":
 			m.moveHunk(1)
 		case "[":

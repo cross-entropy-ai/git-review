@@ -75,6 +75,7 @@ func (m *Model) controls() []control {
 		{label: " Space Fold ", key: " "},
 		{label: " t Tree/List ", key: "t"},
 		{label: modeLabel, key: "s"},
+		{label: " e Edit ", key: "e"},
 		{label: " v Viewed ", key: "v"},
 		{label: " / Filter ", key: "/"},
 	}

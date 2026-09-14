@@ -142,6 +142,7 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 | `Space` | Fold or unfold the selected file |
 | `t` | Toggle Tree/List |
 | `s` | Toggle inline / split diff (old on the left, new on the right) |
+| `e` | Open the selected local file in the default editor |
 | `v` | Mark viewed, fold, and move on |
 | `/` | Find files by path |
 | `Tab` | Switch between the sidebar and diff |
@@ -151,10 +152,12 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 
 Prefer the mouse? Click a file to jump to it, click its checkbox to mark it viewed, and scroll either pane. In the tree, click a directory to expand or collapse it.
 
+Press `e` to edit the selected file in your local working tree, including when reviewing committed changes. The editor follows Git's settings: `GIT_EDITOR`, `core.editor`, `VISUAL`, then `EDITOR`, with Git's fallback (usually `vi`). Editor arguments such as `code --wait` are supported. After closing the editor, press `r` to refresh. Files missing locally and remote PR comparisons without a local working tree cannot be opened.
+
 ## Good to know
 
 - Auto mode checks staged, unstaged, and untracked changes, respecting Git ignore rules. `-w` / `--working-tree` shows current on-disk changes against `HEAD`; a clean worktree stays in this mode with an empty diff. `-c` / `--committed` always shows committed changes. Refreshing with `r` keeps the current scope, even if local changes appear or disappear.
-- Your files and staging area stay as they are. Local review progress is saved under `.git/git-review/`; use `--no-state` for a session without saved progress.
+- Reviewing leaves your files and staging area unchanged; `e` lets you edit files explicitly. Local review progress is saved under `.git/git-review/`; use `--no-state` for a session without saved progress.
 - Local progress belongs to an exact comparison. Refreshing changed content starts a fresh review for the whole comparison; unchanged content keeps its viewed marks.
 - Use a terminal at least 90 columns wide for the sidebar. `--no-mouse` restores native terminal text selection; `--no-color` disables colors.
 

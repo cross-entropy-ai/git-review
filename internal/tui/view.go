@@ -404,6 +404,7 @@ func (m *Model) helpLines() []string {
 		"  j / k · ↑ / ↓    Scroll diff; at an edge, select adjacent file",
 		"  n / p            Next / previous file",
 		"  Space / Enter    Fold / unfold the selected file",
+		"  e                Open selected local file in the default editor",
 		"  v                Toggle viewed; fold and advance when viewed",
 		"  C / E            Collapse / expand all filtered files",
 		"  /                Filter paths; Esc clears the filter",
