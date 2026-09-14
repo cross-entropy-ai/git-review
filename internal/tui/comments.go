@@ -3,6 +3,7 @@ package tui
 import (
 	"crypto/rand"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,19 +32,38 @@ func (m *Model) installComments() {
 	if m.commentStates == nil {
 		m.commentStates = make(map[string]*commentState)
 	}
-	if state, ok := m.commentStates[m.snapshot.Key]; ok {
+	key := m.snapshot.Key
+	if m.syncComments() && m.snapshot.CommentKey != "" {
+		key = m.snapshot.CommentKey
+	}
+	if state, ok := m.commentStates[key]; ok {
 		m.notes = state
 		m.mergeGitHubComments()
 		return
 	}
 	m.notes = &commentState{}
-	m.commentStates[m.snapshot.Key] = m.notes
+	m.commentStates[key] = m.notes
 	if m.snapshot.Persistence == backend.Memory {
 		return
 	}
 	m.notes.path, m.notes.err = review.CommentsPath(m.comparison, m.snapshot.Key)
+	legacy := m.notes.path
+	if m.notes.err == nil && key != m.snapshot.Key {
+		m.notes.path, m.notes.err = review.RemoteCommentsPath(m.comparison, key)
+	}
 	if m.notes.err == nil {
 		m.notes.items, m.notes.err = review.LoadComments(m.notes.path)
+		if _, err := os.Stat(m.notes.path); os.IsNotExist(err) && legacy != m.notes.path {
+			m.notes.items, m.notes.err = review.LoadComments(legacy)
+			for i := range m.notes.items {
+				if m.notes.items[i].Revision == "" {
+					m.notes.items[i].Revision = m.snapshot.Revision
+				}
+			}
+			if m.notes.err == nil && len(m.notes.items) > 0 {
+				m.notes.err = review.SaveComments(m.notes.path, m.notes.items)
+			}
+		}
 	}
 	if m.notes.err != nil {
 		m.showAlert("Cannot restore comments", m.notes.err.Error())
@@ -134,7 +154,7 @@ func (m *Model) beginComment() {
 	}
 	// Start at the active search match when one exists, otherwise the first
 	// visible source line in the selected file.
-	if m.search != "" && m.matchIndex >= 0 && m.matchIndex < len(m.matches) {
+	if m.search != "" && m.matchIndex >= 0 && m.matchIndex < len(m.matches) && m.matches[m.matchIndex].file == m.selected {
 		match := m.matches[m.matchIndex]
 		for i, r := range m.rows {
 			if r.file == match.file && r.hunk == match.hunk && (r.kind == 'l' || r.kind == 'd') && (r.line == match.line || r.kind == 'd' && r.rightLine == match.line) {
@@ -301,6 +321,10 @@ func (m *Model) editSelectedLines() {
 	// Revisit the same range to edit its existing note.
 	for _, c := range m.notes.items {
 		if c.RemoteID == 0 && c.ReplyTo == 0 && c.Path == m.commentDraft.Path && c.Side == m.commentDraft.Side && c.Start == m.commentDraft.Start && c.End == m.commentDraft.End {
+			if c.Outdated && c.PendingBody == "" {
+				c.Code, c.OldPath, c.Outdated = m.commentDraft.Code, m.commentDraft.OldPath, false
+				c.Revision, c.CommitID = m.snapshot.Revision, m.comparison.HeadOID
+			}
 			m.commentDraft = c
 			break
 		}
@@ -326,6 +350,21 @@ func (m *Model) saveComment() tea.Cmd {
 	}
 	c := m.commentDraft
 	c.Body = body
+	outgoing := c
+	if m.syncComments() && c.RemoteID == 0 {
+		if c.Revision == "" {
+			c.Revision = m.snapshot.Revision
+			outgoing.Revision = c.Revision
+			c.CommitID = m.comparison.HeadOID
+			outgoing.CommitID = c.CommitID
+		}
+		if c.PendingBody == "" {
+			c.PendingBody = body
+			for _, existing := range m.notes.items {
+				c.PendingAfterID = max(c.PendingAfterID, existing.RemoteID)
+			}
+		}
+	}
 	items := append([]review.Comment(nil), m.notes.items...)
 	found := false
 	for i := range items {
@@ -350,7 +389,8 @@ func (m *Model) saveComment() tea.Cmd {
 	if m.persistComments(items) {
 		if m.syncComments() {
 			m.commentDraft = c
-			return m.sendComment(c, false)
+			outgoing.ID = c.ID
+			return m.sendComment(outgoing, false)
 		}
 		m.commentModal, m.lineSelecting, m.rangeSelecting = m.commentReturn, false, false
 		m.message = "Comment saved · C Comments · x Export Markdown"

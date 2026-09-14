@@ -18,24 +18,40 @@ import (
 // Comment anchors a local note to one side of an exact comparison. Keeping the
 // excerpt allows exports to remain self-contained, including deleted files.
 type Comment struct {
-	ID        string `json:"id"`
-	Path      string `json:"path"`
-	OldPath   string `json:"old_path,omitempty"`
-	Side      string `json:"side"` // "old" or "new"
-	Start     int    `json:"start"`
-	End       int    `json:"end"`
-	Code      string `json:"code"`
-	Body      string `json:"body"`
-	RemoteID  int64  `json:"github_id,omitempty"`
-	ReplyTo   int64  `json:"reply_to,omitempty"`
-	Author    string `json:"author,omitempty"`
-	AuthorID  string `json:"author_id,omitempty"`
-	URL       string `json:"url,omitempty"`
-	Outdated  bool   `json:"outdated,omitempty"`
-	StartSide string `json:"start_side,omitempty"`
-	DraftBody string `json:"draft_body,omitempty"`
-	ThreadID  string `json:"thread_id,omitempty"`
-	Resolved  bool   `json:"resolved,omitempty"`
+	ID             string `json:"id"`
+	Path           string `json:"path"`
+	OldPath        string `json:"old_path,omitempty"`
+	Side           string `json:"side"` // "old" or "new"
+	Start          int    `json:"start"`
+	End            int    `json:"end"`
+	Code           string `json:"code"`
+	Body           string `json:"body"`
+	RemoteID       int64  `json:"github_id,omitempty"`
+	ReplyTo        int64  `json:"reply_to,omitempty"`
+	Author         string `json:"author,omitempty"`
+	AuthorID       string `json:"author_id,omitempty"`
+	URL            string `json:"url,omitempty"`
+	Outdated       bool   `json:"outdated,omitempty"`
+	StartSide      string `json:"start_side,omitempty"`
+	DraftBody      string `json:"draft_body,omitempty"`
+	ThreadID       string `json:"thread_id,omitempty"`
+	Resolved       bool   `json:"resolved,omitempty"`
+	Revision       string `json:"revision,omitempty"`
+	CommitID       string `json:"commit_id,omitempty"`
+	OriginalStart  int    `json:"original_start,omitempty"`
+	OriginalEnd    int    `json:"original_end,omitempty"`
+	PendingBody    string `json:"pending_body,omitempty"`
+	PendingAfterID int64  `json:"pending_after_id,omitempty"`
+}
+
+// Remote drafts outlive a diff revision, but never cross PR or account boundaries.
+func RemoteCommentsPath(c *diff.Comparison, key string) (string, error) {
+	legacy, err := CommentsPath(c, key)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte(key))
+	return filepath.Join(filepath.Dir(legacy), "pr-"+hex.EncodeToString(sum[:])+".json"), nil
 }
 
 func CommentsPath(c *diff.Comparison, key string) (string, error) {
@@ -145,6 +161,9 @@ func Markdown(label, url string, c *diff.Comparison, comments []Comment) string 
 		}
 		if item.Resolved {
 			location += " (resolved)"
+		}
+		if item.PendingBody != "" {
+			location += " (sync uncertain)"
 		}
 		fmt.Fprintf(&out, "\n### %s\n\n", location)
 		if item.RemoteID > 0 {

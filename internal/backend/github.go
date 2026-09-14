@@ -134,7 +134,8 @@ func (g *GitHub) Load(parent context.Context, mode diff.Mode) (*Snapshot, error)
 	}
 	s := &Snapshot{Comparison: c, Mode: diff.ModePullRequest, Label: fmt.Sprintf("%s/%s #%d", g.Target.Owner, g.Target.Repo, g.Target.Number),
 		Title: p.Title, URL: g.Target.URL(), Viewer: viewer, RemoteID: p.NodeID, Revision: p.revision(), Viewed: states, Persistence: Memory, Warning: warning}
-	s.Key = strings.Join([]string{g.Target.Host, p.NodeID, viewer, p.revision()}, ":")
+	s.CommentKey = strings.Join([]string{g.Target.Host, p.NodeID, viewer}, ":")
+	s.Key = s.CommentKey + ":" + p.revision()
 	if g.Persist {
 		s.Persistence = Remote
 	}

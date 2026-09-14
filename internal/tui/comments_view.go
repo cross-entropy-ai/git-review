@@ -231,6 +231,9 @@ func (m *Model) overlayComments(screen []string) []string {
 				location = prefix + " · " + location
 			} else if m.syncComments() {
 				location = "Local draft · " + location
+				if c.PendingBody != "" {
+					location = "Sync uncertain · " + location
+				}
 			}
 			if c.DraftBody != "" {
 				location = "Unsynced edit · " + location

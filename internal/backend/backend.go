@@ -40,6 +40,7 @@ type Snapshot struct {
 	// RemoteID identifies the PR on GitHub; Revision also guards base changes.
 	RemoteID      string
 	Revision      string
+	CommentKey    string // Stable across revisions, isolated by PR and account.
 	Comments      []review.Comment
 	CommentsError string
 }
@@ -49,6 +50,13 @@ type CommentBackend interface {
 	SaveComment(context.Context, *Snapshot, review.Comment) (review.Comment, error)
 	DeleteComment(context.Context, *Snapshot, review.Comment) error
 }
+
+// CommentNotSubmittedError confirms that creating a comment did not succeed.
+// Other failures may have happened after GitHub accepted the request.
+type CommentNotSubmittedError struct{ Err error }
+
+func (e *CommentNotSubmittedError) Error() string { return e.Err.Error() }
+func (e *CommentNotSubmittedError) Unwrap() error { return e.Err }
 
 type ThreadBackend interface {
 	SetThreadResolved(context.Context, *Snapshot, review.Comment, bool) (review.Comment, error)

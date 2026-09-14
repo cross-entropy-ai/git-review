@@ -26,6 +26,7 @@ type apiComment struct {
 	PRURL             string `json:"pull_request_url"`
 	DiffHunk          string `json:"diff_hunk"`
 	SubjectType       string `json:"subject_type"`
+	CommitID          string `json:"commit_id"`
 	User              struct {
 		Login  string
 		NodeID string `json:"node_id"`
@@ -41,7 +42,7 @@ func commentSide(side string) string {
 
 func (a apiComment) comment() review.Comment {
 	c := review.Comment{ID: fmt.Sprintf("github:%d", a.ID), RemoteID: a.ID, ReplyTo: a.ReplyTo, Body: a.Body, Path: a.Path,
-		Side: commentSide(a.Side), Author: a.User.Login, AuthorID: a.User.NodeID, URL: a.URL}
+		Side: commentSide(a.Side), Author: a.User.Login, AuthorID: a.User.NodeID, URL: a.URL, CommitID: a.CommitID, OriginalStart: a.OriginalStartLine, OriginalEnd: a.OriginalLine}
 	if a.StartSide != "" {
 		c.StartSide = commentSide(a.StartSide)
 	}
@@ -170,9 +171,18 @@ func commentWriteError(err error) error {
 	return fmt.Errorf("GitHub comment request failed; refresh comments before retrying if the result is uncertain: %w", err)
 }
 
-func (g *GitHub) SaveComment(parent context.Context, s *Snapshot, c review.Comment) (review.Comment, error) {
+func (g *GitHub) SaveComment(parent context.Context, s *Snapshot, c review.Comment) (saved review.Comment, err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	attempted := false
+	defer func() {
+		if err != nil && c.RemoteID == 0 && c.PendingBody == "" {
+			message := strings.ToLower(err.Error())
+			if !attempted || strings.Contains(message, "http 403") || strings.Contains(message, "http 401") || strings.Contains(message, "http 422") {
+				err = &CommentNotSubmittedError{Err: err}
+			}
+		}
+	}()
 	ctx, cancel := context.WithTimeout(parent, 90*time.Second)
 	defer cancel()
 	if err := g.checkCommentSnapshot(ctx, s); err != nil {
@@ -180,6 +190,34 @@ func (g *GitHub) SaveComment(parent context.Context, s *Snapshot, c review.Comme
 	}
 	if strings.TrimSpace(c.Body) == "" {
 		return c, errors.New("comment body is empty")
+	}
+	if c.RemoteID == 0 && c.PendingBody != "" {
+		comments, err := g.comments(ctx)
+		if err != nil {
+			return c, err
+		}
+		if c.ReplyTo > 0 && c.ThreadID != "" {
+			threads, err := g.reviewThreads(ctx, s.RemoteID, s.Revision)
+			if err != nil {
+				return c, err
+			}
+			attachThreads(comments, threads)
+		}
+		index, err := review.MatchPendingComment(c, comments, s.Viewer)
+		if err != nil {
+			return c, err
+		}
+		if index >= 0 {
+			remote := comments[index]
+			remote.ThreadID, remote.Resolved = c.ThreadID, c.Resolved
+			if remote.Body == c.Body {
+				return remote, nil
+			}
+			remote.Body = c.Body
+			c = remote
+		} else {
+			return c, errors.New("the previous submission could not be confirmed on GitHub; the draft is retained and will not be sent again. Refresh and inspect the discussion before discarding this draft or posting a new comment")
+		}
 	}
 	method, endpoint := "POST", g.Target.endpoint()+"/comments"
 	body := map[string]any{"body": c.Body}
@@ -196,6 +234,10 @@ func (g *GitHub) SaveComment(parent context.Context, s *Snapshot, c review.Comme
 	case c.ReplyTo > 0:
 		parent, err := g.existingComment(ctx, c.ReplyTo)
 		if err != nil {
+			if strings.Contains(err.Error(), "404") {
+				attempted = true
+				return g.replyToSurvivingThread(ctx, s, c)
+			}
 			return c, err
 		}
 		if parent.ReplyTo > 0 {
@@ -216,6 +258,7 @@ func (g *GitHub) SaveComment(parent context.Context, s *Snapshot, c review.Comme
 		}
 	}
 	var result apiComment
+	attempted = true
 	if err := g.writeComment(ctx, method, endpoint, body, &result); err != nil {
 		return c, err
 	}
@@ -234,35 +277,7 @@ func (g *GitHub) SaveComment(parent context.Context, s *Snapshot, c review.Comme
 }
 
 func validateCommentAnchor(comparison *diff.Comparison, c review.Comment) error {
-	if c.Outdated || c.Start < 1 || c.End < c.Start || c.Side != "old" && c.Side != "new" {
-		return errors.New("invalid comment line range")
-	}
-	for _, f := range comparison.Files {
-		if f.Path != c.Path {
-			continue
-		}
-		for _, h := range f.Hunks {
-			var code []string
-			start, end := false, false
-			for _, l := range h.Lines {
-				n := l.New
-				if c.Side == "old" {
-					n = l.Old
-				}
-				if l.Kind == '\\' || n == 0 {
-					continue
-				}
-				start, end = start || n == c.Start, end || n == c.End
-				if n >= c.Start && n <= c.End {
-					code = append(code, l.Text)
-				}
-			}
-			if start && end && strings.Join(code, "\n") == c.Code {
-				return nil
-			}
-		}
-	}
-	return errors.New("comment lines no longer match this diff; select the lines again")
+	return review.ValidateCommentAnchor(comparison, c)
 }
 
 func (g *GitHub) DeleteComment(parent context.Context, s *Snapshot, c review.Comment) error {

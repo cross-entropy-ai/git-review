@@ -22,6 +22,7 @@ type commentServer struct {
 	resolved              map[string]bool
 	denyResolve           bool
 	threadMutations       []string
+	threadReplies         []map[string]any
 }
 
 func commentRecord(id int64, body string) map[string]any {
@@ -41,6 +42,17 @@ func (f *commentServer) run(ctx context.Context, input []byte, args ...string) (
 		}
 		if strings.Contains(request.Query, "reviewThreads(") {
 			return f.threadResponse(request.Variables)
+		}
+		if strings.Contains(request.Query, "addPullRequestReviewThreadReply(") {
+			input := request.Variables["input"].(map[string]any)
+			f.threadReplies = append(f.threadReplies, input)
+			if f.writeError != nil {
+				return nil, f.writeError
+			}
+			return encoded(map[string]any{"data": map[string]any{"addPullRequestReviewThreadReply": map[string]any{"comment": map[string]any{
+				"fullDatabaseId": "1002", "body": input["body"], "url": "https://github.com/owner/repo/pull/918#discussion_r1002",
+				"author": map[string]any{"login": "me", "id": "user-id"},
+			}}}})
 		}
 		if strings.Contains(request.Query, "resolveReviewThread(") {
 			mutation := "resolveReviewThread"

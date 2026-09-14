@@ -107,6 +107,68 @@ func attachThreads(comments []review.Comment, threads map[int64]reviewThread) {
 	}
 }
 
+// A deleted REST root cannot receive replies. Resolve the surviving thread
+// through this PR's fresh comments and thread list, never a cached node alone.
+func (g *GitHub) replyToSurvivingThread(ctx context.Context, s *Snapshot, c review.Comment) (review.Comment, error) {
+	comments, err := g.comments(ctx)
+	if err != nil {
+		return c, err
+	}
+	threads, err := g.reviewThreads(ctx, s.RemoteID, s.Revision)
+	if err != nil {
+		return c, err
+	}
+	attachThreads(comments, threads)
+	var anchor review.Comment
+	for _, member := range comments {
+		// GitHub can promote a surviving reply and clear its old reply_to ID.
+		// In that case validate the cached thread against this PR's fresh
+		// thread membership and path before using the thread reply mutation.
+		promoted := c.ThreadID != "" && member.ThreadID == c.ThreadID && member.Path == c.Path
+		if (member.ReplyTo == c.ReplyTo || promoted) && member.ThreadID != "" {
+			anchor = member
+			break
+		}
+	}
+	if anchor.ThreadID == "" {
+		return c, errors.New("the discussion no longer exists in this PR; the reply draft has been kept")
+	}
+	query := `mutation($input:AddPullRequestReviewThreadReplyInput!) {
+ addPullRequestReviewThreadReply(input:$input) {
+  comment { fullDatabaseId body url author { login ... on User { id } ... on Bot { id } } }
+ }
+}`
+	var result struct {
+		AddPullRequestReviewThreadReply struct {
+			Comment *struct {
+				FullDatabaseID json.Number
+				Body, URL      string
+				Author         struct{ Login, ID string }
+			}
+		}
+	}
+	if err := g.graphql(ctx, query, map[string]any{"input": map[string]any{"pullRequestReviewThreadId": anchor.ThreadID, "body": c.Body}}, &result); err != nil {
+		return c, commentWriteError(err)
+	}
+	created := result.AddPullRequestReviewThreadReply.Comment
+	if created == nil {
+		return c, errors.New("GitHub did not confirm the reply; refresh before retrying")
+	}
+	id, err := created.FullDatabaseID.Int64()
+	if err != nil || id <= 0 || created.Body != c.Body {
+		return c, errors.New("GitHub did not confirm the reply; refresh before retrying")
+	}
+	root := anchor.ReplyTo
+	if root == 0 {
+		root = anchor.RemoteID
+	}
+	anchor.ID, anchor.RemoteID, anchor.ReplyTo = fmt.Sprintf("github:%d", id), id, root
+	anchor.Body, anchor.URL = created.Body, created.URL
+	anchor.Author, anchor.AuthorID = created.Author.Login, created.Author.ID
+	anchor.DraftBody, anchor.PendingBody, anchor.PendingAfterID = "", "", 0
+	return anchor, nil
+}
+
 func (g *GitHub) SetThreadResolved(parent context.Context, s *Snapshot, c review.Comment, resolved bool) (review.Comment, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()

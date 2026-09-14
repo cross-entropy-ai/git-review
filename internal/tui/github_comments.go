@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -31,15 +32,46 @@ func (m *Model) mergeGitHubComments() {
 	}
 	drafts := make(map[int64]string)
 	var items []review.Comment
+	reconciled := false
 	for _, c := range m.notes.items {
 		if c.RemoteID == 0 {
+			index, err := review.MatchPendingComment(c, m.snapshot.Comments, m.snapshot.Viewer)
+			if err != nil {
+				m.showAlert("Cannot reconcile comment", err.Error())
+			}
+			if index >= 0 {
+				reconciled = true
+				remote := m.snapshot.Comments[index]
+				if c.Body != remote.Body {
+					drafts[remote.RemoteID] = c.Body
+				}
+				continue
+			}
+			if c.ReplyTo == 0 && c.Revision != "" && c.Revision != m.snapshot.Revision {
+				c.Outdated = false
+				c.Outdated = review.ValidateCommentAnchor(m.comparison, c) != nil
+				if !c.Outdated {
+					c.Revision = m.snapshot.Revision
+					// Keep a pending submission's original commit for reconciliation.
+					if c.PendingBody == "" {
+						c.CommitID = m.comparison.HeadOID
+					}
+				}
+			}
 			items = append(items, c)
 		} else if c.DraftBody != "" {
-			drafts[c.RemoteID] = c.DraftBody
+			if c.DraftBody != c.Body {
+				drafts[c.RemoteID] = c.DraftBody
+			}
 		}
 	}
 	for _, c := range m.snapshot.Comments {
-		c.DraftBody = drafts[c.RemoteID]
+		if body, ok := drafts[c.RemoteID]; ok && body == c.Body {
+			reconciled = true
+		}
+		if drafts[c.RemoteID] != c.Body {
+			c.DraftBody = drafts[c.RemoteID]
+		}
 		delete(drafts, c.RemoteID)
 		items = append(items, c)
 	}
@@ -53,6 +85,9 @@ func (m *Model) mergeGitHubComments() {
 		}
 	}
 	m.notes.items = items
+	if reconciled && m.notes.err == nil {
+		m.persistComments(items)
+	}
 }
 
 func (m *Model) sendComment(c review.Comment, deleted bool) tea.Cmd {
@@ -81,6 +116,17 @@ func (m *Model) finishComment(msg commentSavedMsg) {
 	}
 	m.commentSaving = false
 	if msg.err != nil {
+		var rejected *backend.CommentNotSubmittedError
+		if msg.original.RemoteID == 0 && msg.original.PendingBody == "" && errors.As(msg.err, &rejected) {
+			items := append([]review.Comment(nil), m.notes.items...)
+			for i := range items {
+				if items[i].ID == msg.original.ID {
+					items[i].PendingBody, items[i].PendingAfterID = "", 0
+				}
+			}
+			m.commentDraft.PendingBody, m.commentDraft.PendingAfterID = "", 0
+			m.persistComments(items)
+		}
 		title := "GitHub comment save failed"
 		if msg.deleted {
 			title = "GitHub comment deletion failed"

@@ -144,6 +144,11 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 			if m.loading {
 				return nil
 			}
+			if !m.lineSelecting {
+				m.selected, m.fileFocus = row.file, false
+				m.ensureSelectedVisible()
+				return nil
+			}
 			side := ""
 			if row.kind == 'd' {
 				side = "old"

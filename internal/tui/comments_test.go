@@ -222,6 +222,11 @@ func TestCommentMouseSelectionAndConfirmation(t *testing.T) {
 	defer m.Close()
 	g := m.layout()
 	clickAt(m, g.diffX+20, contentTop+2)
+	if m.lineSelecting || m.commentModal != "" {
+		t.Fatal("ordinary click entered comment mode")
+	}
+	press(m, "c")
+	clickAt(m, g.diffX+20, contentTop+2)
 	if !m.lineSelecting || m.lineNumber(m.commentLine) != 1 {
 		t.Fatal("click did not select a source line")
 	}

@@ -93,7 +93,7 @@ func githubCommentModel(t *testing.T) (*Model, *fakeCommentBackend) {
 	t.Cleanup(base.Close)
 	c := *base.comparison
 	c.GitDir, c.HeadOID = t.TempDir(), "head"
-	s := &backend.Snapshot{Comparison: &c, Key: "test-pr", Mode: diff.ModePullRequest, Persistence: backend.Remote, Viewer: "me-id",
+	s := &backend.Snapshot{Comparison: &c, Key: "test-pr:base:head", CommentKey: "test-pr", Revision: "base:head", Mode: diff.ModePullRequest, Persistence: backend.Remote, Viewer: "me-id",
 		Comments: []review.Comment{{ID: "github:41", RemoteID: 41, Path: "main.go", Side: "new", Start: 1, End: 1, Code: "package main // content", Body: "Existing comment", Author: "other", AuthorID: "other-id"}}}
 	f := &fakeCommentBackend{fakeBackend: fakeBackend{snapshot: s}}
 	m := New(s, f, false, DarkTheme)
