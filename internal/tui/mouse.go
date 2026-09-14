@@ -10,6 +10,10 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if m.width < 45 || m.height < 12 {
 		return nil
 	}
+	if m.help || m.picking {
+		m.modalMouse(msg)
+		return nil
+	}
 	g := m.layout()
 	if msg.Action == tea.MouseActionMotion {
 		if m.dragging != "" && msg.Button == tea.MouseButtonLeft {
@@ -25,9 +29,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelLeft {
 			delta = -3
 		}
-		if m.help {
-			m.helpOffset = min(max(0, m.helpOffset+delta), max(0, len(m.helpLines())-(m.height-5)))
-		} else if msg.Y >= contentTop && msg.Y < contentTop+g.bodyHeight {
+		if msg.Y >= contentTop && msg.Y < contentTop+g.bodyHeight {
 			if g.sideWidth > 0 && msg.X < g.sideWidth {
 				m.sideOffset += delta
 				m.clampSidebar()
@@ -51,17 +53,15 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		if button.key == "" {
 			return nil
 		}
-		if button.key == "/" && !m.help {
-			m.filtering, m.message = true, ""
+		if button.key == "/" {
+			m.openSearch()
+			m.message = ""
 			return nil
 		}
-		if m.filtering && button.key != "esc" && button.key != "enter" {
-			m.filtering = false
+		if m.searching && button.key != "esc" && button.key != "enter" {
+			m.searching = false
 		}
 		return m.activate(button.key)
-	}
-	if m.help {
-		return nil
 	}
 	if msg.Y == contentTop-1 {
 		m.fileFocus = g.sideWidth > 0 && msg.X < g.sideWidth
@@ -70,7 +70,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if msg.Y < contentTop || msg.Y >= contentTop+g.bodyHeight {
 		return nil
 	}
-	m.filtering, m.message = false, ""
+	m.searching, m.message = false, ""
 	if g.sideWidth > 0 && msg.X == g.sideWidth-1 {
 		m.dragging = "files"
 		m.dragScroll(msg.Y)

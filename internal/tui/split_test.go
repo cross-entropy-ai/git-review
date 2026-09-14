@@ -124,8 +124,8 @@ func TestSplitTogglePreservesReviewAndPosition(t *testing.T) {
 		t.Fatal("mouse toggle did not restore inline view/position")
 	}
 	press(m, "/s")
-	if m.splitMode || m.filter != "s" {
-		t.Fatal("s was interpreted as a shortcut while filtering")
+	if m.splitMode || m.search != "s" {
+		t.Fatal("s was interpreted as a shortcut while searching")
 	}
 	press(m, "esc")
 	press(m, "s")
@@ -146,7 +146,7 @@ func TestSplitTogglePreservesReviewAndPosition(t *testing.T) {
 	press(m, "/missing")
 	press(m, "enter")
 	press(m, "s")
-	if m.splitMode || len(m.rows) != 0 {
-		t.Fatal("could not toggle with no matching files")
+	if m.splitMode || len(m.rows) == 0 || len(m.matches) != 0 {
+		t.Fatal("search with no matches changed the diff or blocked split toggle")
 	}
 }

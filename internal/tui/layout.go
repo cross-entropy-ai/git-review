@@ -77,13 +77,14 @@ func (m *Model) controls() []control {
 		{label: modeLabel, key: "s"},
 		{label: " e Edit ", key: "e"},
 		{label: " v Viewed ", key: "v"},
-		{label: " / Filter ", key: "/"},
+		{label: " f Files ", key: "f"},
+		{label: " / Search ", key: "/"},
 	}
 	footerLimit := m.width - rightInset
-	if m.help {
-		buttons = []control{{label: " Esc Close help ", key: "esc"}}
-	} else if m.filtering {
-		buttons = []control{{label: " Enter Apply ", key: "enter"}, {label: " Esc Clear ", key: "esc"}}
+	if m.help || m.picking {
+		buttons = nil
+	} else if m.searching {
+		buttons = []control{{label: " Enter Done ", key: "enter"}, {label: " Esc Clear ", key: "esc"}}
 	} else {
 		help, quit := control{label: " ? Help ", key: "?"}, control{label: " q Quit ", key: "q"}
 		right(m.height-1, help, quit)

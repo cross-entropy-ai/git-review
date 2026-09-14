@@ -92,34 +92,27 @@ func TestFoldViewedAndNavigation(t *testing.T) {
 	}
 }
 
-func TestFilterUnicodeEmptyAndClear(t *testing.T) {
+func TestPickerUnicodeEmptyAndCancel(t *testing.T) {
 	m := sampleModel(false)
-	press(m, "/")
-	press(m, "中文")
-	if len(m.visible) != 1 || m.selected != 1 {
-		t.Fatalf("Unicode filter failed: %v", m.visible)
+	press(m, "f中文")
+	if len(m.fileMatches) != 1 || m.fileMatches[0] != 1 || m.selected != 0 {
+		t.Fatalf("Unicode picker failed: %v", m.fileMatches)
 	}
 	press(m, "enter")
-	press(m, "C")
-	if m.collapsed["main.go"] {
-		t.Fatal("filtered collapse changed a hidden file")
+	if m.picking || m.selected != 1 || len(m.visible) != 3 {
+		t.Fatal("file picker did not select without filtering the review")
 	}
-	press(m, "esc")
-	if len(m.visible) != 3 {
-		t.Fatal("filter did not clear")
-	}
-	press(m, "/")
-	press(m, "missing")
-	press(m, "enter")
-	for _, key := range []string{"v", " ", "n", "p", "j", "C", "E", "]", "["} {
-		press(m, key)
-	}
+	press(m, "fmissing")
 	if !strings.Contains(m.View(), "No files match") {
-		t.Fatal("empty filter message missing")
+		t.Fatal("empty picker message missing")
+	}
+	press(m, "enter")
+	if !m.picking || m.selected != 1 {
+		t.Fatal("empty picker changed selection")
 	}
 	press(m, "esc")
-	if len(m.visible) != 3 || m.offset < 0 {
-		t.Fatal("failed to recover from empty filter")
+	if m.picking || len(m.visible) != 3 || m.selected != 1 {
+		t.Fatal("cancel changed the review")
 	}
 }
 
@@ -190,10 +183,10 @@ func TestRefreshAndHelp(t *testing.T) {
 	}
 	m.Update(tea.WindowSizeMsg{Width: 45, Height: 12})
 	press(m, "?")
-	for i := 0; i < len(m.helpLines()); i++ {
+	for i := 0; i < len(m.helpContent()); i++ {
 		press(m, "j")
 	}
-	if !strings.Contains(m.View(), "Working tree") {
+	if !strings.Contains(m.View(), "excluded.") {
 		t.Fatal("help cannot scroll to the end")
 	}
 	press(m, "q")
@@ -268,19 +261,19 @@ func TestScrollDirectionAfterSelectingVisibleFile(t *testing.T) {
 
 func TestBatchedKeystrokesAndBracketedPaste(t *testing.T) {
 	m := sampleModel(false)
-	press(m, "/docs")
-	if !m.filtering || m.filter != "docs" || len(m.visible) != 1 {
-		t.Fatalf("batched filter input was lost: filter=%q visible=%v", m.filter, m.visible)
+	press(m, "fdocs")
+	if !m.picking || m.fileQuery != "docs" || len(m.fileMatches) != 1 {
+		t.Fatalf("batched picker input was lost: query=%q matches=%v", m.fileQuery, m.fileMatches)
 	}
 	press(m, "esc")
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("vq"), Paste: true})
 	if cmd != nil || m.viewedCount() != 0 {
 		t.Fatal("pasted text executed review shortcuts")
 	}
-	press(m, "/")
+	press(m, "f")
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("docs/中文"), Paste: true})
-	if m.filter != "docs/中文" || len(m.visible) != 1 {
-		t.Fatal("bracketed paste did not populate the filter")
+	if m.fileQuery != "docs/中文" || len(m.fileMatches) != 1 {
+		t.Fatal("bracketed paste did not populate the picker")
 	}
 }
 

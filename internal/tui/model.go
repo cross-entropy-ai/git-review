@@ -3,7 +3,6 @@ package tui
 
 import (
 	"context"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cross-entropy-ai/git-review/internal/backend"
@@ -39,40 +38,48 @@ type highlightKey struct {
 }
 
 type Model struct {
-	comparison *diff.Comparison
-	snapshot   *backend.Snapshot
-	source     backend.Backend
-	mode       diff.Mode
-	ctx        context.Context
-	cancel     context.CancelFunc
-	color      bool
-	palette    palette
-	viewed     map[string]bool
-	dismissed  map[string]bool
-	pending    map[string]pendingViewed
-	collapsed  map[string]bool
-	highlights map[highlightKey][]string
-	visible    []int
-	rows       []row
-	selected   int
-	offset     int
-	xOffset    int
-	sideOffset int
-	treeMode   bool
-	splitMode  bool
-	treeRows   []treeEntry
-	treeCursor int
-	treeClosed map[string]bool
-	dragging   string
-	width      int
-	height     int
-	fileFocus  bool
-	filtering  bool
-	filter     string
-	help       bool
-	helpOffset int
-	loading    bool
-	message    string
+	comparison   *diff.Comparison
+	snapshot     *backend.Snapshot
+	source       backend.Backend
+	mode         diff.Mode
+	ctx          context.Context
+	cancel       context.CancelFunc
+	color        bool
+	palette      palette
+	viewed       map[string]bool
+	dismissed    map[string]bool
+	pending      map[string]pendingViewed
+	collapsed    map[string]bool
+	highlights   map[highlightKey][]string
+	visible      []int
+	rows         []row
+	selected     int
+	offset       int
+	xOffset      int
+	sideOffset   int
+	treeMode     bool
+	splitMode    bool
+	treeRows     []treeEntry
+	treeCursor   int
+	treeClosed   map[string]bool
+	dragging     string
+	width        int
+	height       int
+	fileFocus    bool
+	picking      bool
+	fileQuery    string
+	fileMatches  []int
+	fileCursor   int
+	fileOffset   int
+	searching    bool
+	search       string
+	matches      []searchMatch
+	matchIndex   int
+	searchAnchor row
+	help         bool
+	helpOffset   int
+	loading      bool
+	message      string
 }
 
 func New(s *backend.Snapshot, source backend.Backend, color bool, theme Theme) *Model {
@@ -107,6 +114,9 @@ func (m *Model) install(s *backend.Snapshot) {
 		m.message = safeText(s.Warning)
 	}
 	m.rebuild()
+	m.updateFileMatches()
+	m.searchAnchor = row{file: m.selected}
+	m.updateSearch(m.search != "")
 }
 
 func (m *Model) Init() tea.Cmd { return nil }
@@ -115,6 +125,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
+		m.clampPicker()
+		m.helpOffset = min(m.helpOffset, max(0, len(m.helpContent())-m.helpCapacity()))
 		m.clampOffset()
 		m.ensureSelectedVisible()
 	case loadedMsg:
@@ -151,7 +163,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.mouse(msg)
 	case tea.KeyMsg:
 		// Terminals can deliver several ordinary keystrokes in one read.
-		// Preserve their order so a leading '/' starts filtering immediately.
+		// Preserve their order so a leading 'f' or '/' starts text input immediately.
 		if msg.Type == tea.KeyRunes && !msg.Paste && len(msg.Runes) > 1 {
 			var commands []tea.Cmd
 			for _, r := range msg.Runes {
@@ -163,43 +175,33 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(commands...)
 		}
 		// Bracketed paste is text input, never a stream of review shortcuts.
-		if msg.Paste && !m.filtering {
+		if msg.Paste && !m.picking && !m.searching {
 			return m, nil
 		}
 		key := msg.String()
 		if key == "ctrl+c" {
 			return m, tea.Quit
 		}
-		if m.filtering {
-			switch key {
-			case "enter":
-				m.filtering = false
-			case "esc":
-				m.filter, m.filtering = "", false
-			case "backspace", "ctrl+h":
-				runes := []rune(m.filter)
-				if len(runes) > 0 {
-					m.filter = string(runes[:len(runes)-1])
-				}
-			case "ctrl+u":
-				m.filter = ""
-			default:
-				if msg.Type == tea.KeyRunes || msg.Type == tea.KeySpace {
-					m.filter += string(msg.Runes)
-				}
-			}
-			m.rebuild()
-			m.jumpSelected()
+		if m.picking {
+			m.pickerKey(msg)
+			return m, nil
+		}
+		if m.searching {
+			m.searchKey(msg)
 			return m, nil
 		}
 		if m.help {
 			switch key {
 			case "?", "esc", "q":
 				m.help = false
-			case "j", "down", "pgdown", "ctrl+d":
-				m.helpOffset = min(m.helpOffset+1, max(0, len(m.helpLines())-(m.height-5)))
-			case "k", "up", "pgup", "ctrl+u":
+			case "j", "down":
+				m.helpOffset = min(m.helpOffset+1, max(0, len(m.helpContent())-m.helpCapacity()))
+			case "k", "up":
 				m.helpOffset = max(0, m.helpOffset-1)
+			case "pgdown", "ctrl+d":
+				m.helpOffset = min(m.helpOffset+m.helpCapacity(), max(0, len(m.helpContent())-m.helpCapacity()))
+			case "pgup", "ctrl+u":
+				m.helpOffset = max(0, m.helpOffset-m.helpCapacity())
 			}
 			return m, nil
 		}
@@ -214,6 +216,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "?":
 			m.help = true
 			m.helpOffset = 0
+			m.dragging = ""
 		case "tab", "shift+tab":
 			m.fileFocus = !m.fileFocus
 		case "t":
@@ -226,12 +229,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "s":
 			m.toggleSplit()
+		case "f":
+			m.openPicker()
 		case "/":
-			m.filtering = true
+			m.openSearch()
 		case "esc":
-			m.filter = ""
-			m.rebuild()
-			m.jumpSelected()
+			m.search = ""
+			m.updateSearch(false)
 		case "j", "down":
 			if m.treeFocus() {
 				m.moveTree(1)
@@ -249,9 +253,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.scroll(-1)
 			}
 		case "n":
-			m.moveFile(1)
+			if m.search != "" {
+				m.nextMatch(1)
+			} else {
+				m.moveFile(1)
+			}
 		case "p":
-			m.moveFile(-1)
+			if m.search != "" {
+				m.nextMatch(-1)
+			} else {
+				m.moveFile(-1)
+			}
 		case "pgdown", "ctrl+d":
 			m.scroll(max(1, m.bodyHeight()/2))
 		case "pgup", "ctrl+u":
@@ -375,12 +387,8 @@ func (m *Model) bodyHeight() int { return max(1, m.height-7) }
 func (m *Model) rebuild() {
 	m.visible = nil
 	m.rows = nil
-	query := strings.ToLower(m.filter)
 	found := false
 	for i, file := range m.comparison.Files {
-		if !strings.Contains(strings.ToLower(file.Path), query) && !strings.Contains(strings.ToLower(file.OldPath), query) {
-			continue
-		}
 		m.visible = append(m.visible, i)
 		found = found || i == m.selected
 		m.rows = append(m.rows, row{kind: 'f', file: i})

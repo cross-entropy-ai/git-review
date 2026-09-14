@@ -22,7 +22,7 @@ type treeNode struct {
 	children map[string]*treeNode
 }
 
-// Build from filtered diff paths, including deleted files and rename destinations.
+// Build from diff paths, including deleted files and rename destinations.
 // Directory expansion is independent of diff folding and viewed progress.
 func (m *Model) rebuildTree() {
 	m.treeRows = nil
@@ -65,7 +65,7 @@ func (m *Model) rebuildTree() {
 		})
 		for _, child := range children {
 			m.treeRows = append(m.treeRows, child.entry)
-			if !m.treeClosed[child.entry.path] || m.filter != "" {
+			if !m.treeClosed[child.entry.path] {
 				flatten(child)
 			}
 		}
@@ -127,10 +127,6 @@ func (m *Model) toggleDirectory(index int) {
 	if index < 0 || index >= len(m.treeRows) || m.treeRows[index].file >= 0 {
 		return
 	}
-	if m.filter != "" {
-		m.message = "Directories stay expanded while filtering; Esc clears the filter"
-		return
-	}
 	dir := m.treeRows[index].path
 	m.treeClosed[dir] = !m.treeClosed[dir]
 	m.rebuildTree()
@@ -169,7 +165,7 @@ func (m *Model) treeRight() {
 		if m.collapsed[entry.path] {
 			m.toggleFold()
 		}
-	} else if m.treeClosed[entry.path] && m.filter == "" {
+	} else if m.treeClosed[entry.path] {
 		m.toggleDirectory(m.treeCursor)
 	} else if m.treeCursor+1 < len(m.treeRows) && m.treeRows[m.treeCursor+1].depth > entry.depth {
 		m.moveTree(1)
@@ -195,7 +191,7 @@ func (m *Model) treeSidebar(g geometry) []string {
 		fold := "▾"
 		var text string
 		if entry.file < 0 {
-			if m.treeClosed[entry.path] && m.filter == "" {
+			if m.treeClosed[entry.path] {
 				fold = "▸"
 			}
 			text = prefix + m.ink(m.palette.accent, fold) + " " + m.bold(safeText(entry.name)+"/") + m.ink(m.palette.muted, fmt.Sprintf(" (%d)", entry.count))

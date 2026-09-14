@@ -26,6 +26,12 @@ type palette struct {
 	green               string
 	red                 string
 	syntaxStyle         string
+	modal               modalPalette
+}
+
+type modalPalette struct {
+	background, header, border, selection string
+	muted, shadow, backdrop               string
 }
 
 func paletteFor(theme Theme) palette {
@@ -42,6 +48,10 @@ func paletteFor(theme Theme) palette {
 			green:               "116329",
 			red:                 "b42332",
 			syntaxStyle:         "github",
+			modal: modalPalette{
+				background: "ffffff", header: "f0f5fc", border: "8092ac", selection: "dceafd",
+				muted: "52637b", shadow: "d4dbe5", backdrop: "8490a0",
+			},
 		}
 	}
 	return palette{
@@ -56,6 +66,10 @@ func paletteFor(theme Theme) palette {
 		green:               "85d996",
 		red:                 "ff9b98",
 		syntaxStyle:         "github-dark",
+		modal: modalPalette{
+			background: "1b2230", header: "263348", border: "617899", selection: "2b4668",
+			muted: "a6b8d0", shadow: "080d16", backdrop: "738195",
+		},
 	}
 }
 
@@ -89,7 +103,7 @@ func (m *Model) surfaceWithBackground(fg, bg, text string, width int) string {
 		return text
 	}
 	fgCode := colorCode(38, fg)
-	bgCode := ""
+	bgCode := "\x1b[49m"
 	if bg != "" {
 		bgCode = colorCode(48, bg)
 	}

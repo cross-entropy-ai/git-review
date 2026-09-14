@@ -111,8 +111,12 @@ func (m *Model) renderSplitCell(row row, index int, newSide bool, width int) str
 	case '+':
 		fg, bg = m.palette.green, m.palette.addedBackground
 	}
-	gutter := m.ink(fg, fmt.Sprintf("%4s %c │ ", lineNumber, line.Kind))
+	marker := "│"
+	if m.currentMatch(row.file, row.hunk, index) {
+		marker = "›"
+	}
+	gutter := m.ink(fg, fmt.Sprintf("%4s %c %s ", lineNumber, line.Kind, marker))
 	available := max(0, width-ansi.StringWidth(gutter))
-	code := ansi.Cut(m.highlights[key][index], m.xOffset, m.xOffset+available)
+	code := ansi.Cut(m.highlightSearch(m.highlights[key][index], row.file, row.hunk, index), m.xOffset, m.xOffset+available)
 	return m.surfaceWithBackground(m.palette.foreground, bg, gutter+fit(code, available), width)
 }

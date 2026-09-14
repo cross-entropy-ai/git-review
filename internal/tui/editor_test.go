@@ -97,9 +97,9 @@ func TestOpenEditorSelectionAndInputModes(t *testing.T) {
 	if cmd := m.activate("e"); cmd != nil || !strings.Contains(m.message, "Select a file") {
 		t.Fatal("directory selection opened a file")
 	}
-	press(m, "/")
-	if cmd := m.activate("e"); cmd != nil || m.filter != "e" {
-		t.Fatal("filter input triggered the editor")
+	press(m, "f")
+	if cmd := m.activate("e"); cmd != nil || m.fileQuery != "e" {
+		t.Fatal("picker input triggered the editor")
 	}
 	press(m, "missing")
 	press(m, "enter")

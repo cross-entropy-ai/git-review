@@ -51,56 +51,50 @@ func (m *Model) View() string {
 	out = append(out, m.surface(m.palette.foreground, fit(left, m.width-rightInset-ansi.StringWidth(progress))+progress, m.width))
 	out = append(out, m.controlRow(2, ""))
 
-	if m.help {
-		out = append(out, m.helpView(m.height-5)...)
-	} else {
-		sideTitle := fmt.Sprintf(" FILES · %d ", len(m.visible))
-		if m.treeMode {
-			sideTitle = fmt.Sprintf(" TREE · %d ", len(m.visible))
-		}
-		diffTitle := " DIFF "
-		if m.splitMode {
-			diffTitle = " DIFF · SPLIT (old │ new) "
-		}
-		if len(m.visible) > 0 {
-			diffTitle += "· " + safeText(c.Files[m.selected].Path) + " "
-		}
-		top := m.panelEdge(diffTitle, m.width-g.diffX, !m.fileFocus, true)
-		if g.sideWidth > 0 {
-			top = m.panelEdge(sideTitle, g.sideWidth, m.fileFocus, true) + m.surface(m.palette.foreground, " ", 1) + top
-		}
-		out = append(out, top)
-		side := m.sidebar(g)
-		for y := 0; y < g.bodyHeight; y++ {
-			content := m.surface(m.palette.foreground, "", g.diffWidth)
-			if m.offset+y < len(m.rows) {
-				content = m.renderRow(m.rows[m.offset+y], g.diffWidth)
-			}
-			if len(m.rows) == 0 {
-				content = m.emptyRow(y, g.diffWidth)
-			}
-			rail := m.scrollRail(y, g.bodyHeight, len(m.rows), m.offset, !m.fileFocus)
-			line := m.surface(m.palette.border, "│", 1) + content + rail
-			if g.sideWidth > 0 {
-				line = side[y] + m.surface(m.palette.foreground, " ", 1) + line
-			}
-			out = append(out, line)
-		}
-		bottom := m.panelEdge("", m.width-g.diffX, !m.fileFocus, false)
-		if g.sideWidth > 0 {
-			bottom = m.panelEdge("", g.sideWidth, m.fileFocus, false) + m.surface(m.palette.foreground, " ", 1) + bottom
-		}
-		out = append(out, bottom)
+	sideTitle := fmt.Sprintf(" FILES · %d ", len(m.visible))
+	if m.treeMode {
+		sideTitle = fmt.Sprintf(" TREE · %d ", len(m.visible))
 	}
+	diffTitle := " DIFF "
+	if m.splitMode {
+		diffTitle = " DIFF · SPLIT (old │ new) "
+	}
+	if len(m.visible) > 0 {
+		diffTitle += "· " + safeText(c.Files[m.selected].Path) + " "
+	}
+	top := m.panelEdge(diffTitle, m.width-g.diffX, !m.fileFocus, true)
+	if g.sideWidth > 0 {
+		top = m.panelEdge(sideTitle, g.sideWidth, m.fileFocus, true) + m.surface(m.palette.foreground, " ", 1) + top
+	}
+	out = append(out, top)
+	side := m.sidebar(g)
+	for y := 0; y < g.bodyHeight; y++ {
+		content := m.surface(m.palette.foreground, "", g.diffWidth)
+		if m.offset+y < len(m.rows) {
+			content = m.renderRow(m.rows[m.offset+y], g.diffWidth)
+		}
+		if len(m.rows) == 0 {
+			content = m.emptyRow(y, g.diffWidth)
+		}
+		rail := m.scrollRail(y, g.bodyHeight, len(m.rows), m.offset, !m.fileFocus)
+		line := m.surface(m.palette.border, "│", 1) + content + rail
+		if g.sideWidth > 0 {
+			line = side[y] + m.surface(m.palette.foreground, " ", 1) + line
+		}
+		out = append(out, line)
+	}
+	bottom := m.panelEdge("", m.width-g.diffX, !m.fileFocus, false)
+	if g.sideWidth > 0 {
+		bottom = m.panelEdge("", g.sideWidth, m.fileFocus, false) + m.surface(m.palette.foreground, " ", 1) + bottom
+	}
+	out = append(out, bottom)
 
 	status := "  Click to navigate · scroll either pane · drag the scrollbar"
-	if m.filtering {
-		status = "  Type a path to filter · Enter apply · Esc clear"
+	if m.searching {
+		status = "  Search diff text · Enter confirm · Esc clear"
 	}
-	if m.help {
-		status = "  Mouse wheel or j/k to scroll help"
-	}
-	if !m.help && !m.filtering && len(m.visible) > 0 {
+
+	if !m.help && !m.searching && len(m.visible) > 0 {
 		status = "  " + safeText(c.Files[m.selected].Path)
 		if m.xOffset > 0 {
 			status += fmt.Sprintf(" · column +%d", m.xOffset)
@@ -111,6 +105,12 @@ func (m *Model) View() string {
 	}
 	if len(m.visible) > 0 && m.dismissed[c.Files[m.selected].Path] {
 		status += " · Changed since viewed on GitHub"
+	}
+	if m.search != "" {
+		status = "  " + m.searchStatus() + " · n/p next/previous match · Esc clear"
+		if m.searching {
+			status = "  " + m.searchStatus() + " · Enter confirm, then n/p next/previous · Esc clear"
+		}
 	}
 	if m.snapshot.Warning != "" {
 		status = "  " + safeText(m.snapshot.Warning)
@@ -125,6 +125,9 @@ func (m *Model) View() string {
 	}
 	out = append(out, m.surface(m.palette.muted, fit(status, m.width-rightInset-ansi.StringWidth(position))+position, m.width))
 	out = append(out, m.controlRow(m.height-1, ""))
+	if m.help || m.picking {
+		out = m.overlayModal(out)
+	}
 	return strings.Join(out, "\n")
 }
 
@@ -150,15 +153,20 @@ func (m *Model) controlRow(y int, prefix string) string {
 		}
 		label, fg := button.label, m.palette.muted
 		if button.key == "/" && y == 2 {
-			label = " / Filter files…"
-			if m.filter != "" || m.filtering {
-				label = " / " + safeText(m.filter)
-				if m.filtering {
-					label += "▏"
+			label = " / Search diff…"
+			if m.search != "" || m.searching {
+				query := safeText(m.search)
+				if m.searching {
+					query += "▏"
 				}
-				label += fmt.Sprintf("  (%d matches)", len(m.visible))
+				count := ""
+				if m.search != "" {
+					count = "  (" + m.searchStatus() + ")"
+				}
+				available := max(1, button.width-3-ansi.StringWidth(count))
+				label = " / " + ansi.Cut(query, max(0, ansi.StringWidth(query)-available), ansi.StringWidth(query)) + count
 			}
-			if m.filtering {
+			if m.searching {
 				fg = m.palette.accent
 			}
 		}
@@ -334,7 +342,7 @@ func (m *Model) renderRowContent(row row, width int) string {
 			file.Hunks = file.Hunks[row.hunk : row.hunk+1]
 			m.highlights[key] = highlightFile(file, m.color, m.palette.syntaxStyle)[0]
 		}
-		code := m.highlights[key][row.line]
+		code := m.highlightSearch(m.highlights[key][row.line], row.file, row.hunk, row.line)
 		oldNumber, newNumber := "", ""
 		if line.Old > 0 {
 			oldNumber = fmt.Sprint(line.Old)
@@ -352,7 +360,11 @@ func (m *Model) renderRowContent(row row, width int) string {
 			signColor = m.palette.red
 			bg = m.palette.deletedBackground
 		}
-		gutter := m.ink(signColor, fmt.Sprintf("%4s %4s %c │ ", oldNumber, newNumber, line.Kind))
+		marker := "│"
+		if m.currentMatch(row.file, row.hunk, row.line) {
+			marker = "›"
+		}
+		gutter := m.ink(signColor, fmt.Sprintf("%4s %4s %c %s ", oldNumber, newNumber, line.Kind, marker))
 		available := max(0, width-ansi.StringWidth(gutter))
 		code = ansi.Cut(code, m.xOffset, m.xOffset+available)
 		return m.surfaceWithBackground(m.palette.foreground, bg, gutter+fit(code, available), width)
@@ -364,21 +376,14 @@ func (m *Model) emptyRow(y, width int) string {
 	center := max(0, m.bodyHeight()/2-1)
 	text := ""
 	if y == center {
-		text = "No files match"
-		if len(m.comparison.Files) == 0 {
-			text = "No changes to review"
-		}
-		text = m.bold(text)
+		text = m.bold("No changes to review")
 	}
 	if y == center+1 {
-		text = "Press Esc to clear the filter."
-		if len(m.comparison.Files) == 0 {
-			text = "The head matches its merge base."
-			if m.comparison.WorkingTree {
-				text = "Your working tree matches HEAD."
-			} else if m.mode == diff.ModePullRequest {
-				text = "This pull request has no changed files."
-			}
+		text = "The head matches its merge base."
+		if m.comparison.WorkingTree {
+			text = "Your working tree matches HEAD."
+		} else if m.mode == diff.ModePullRequest {
+			text = "This pull request has no changed files."
 		}
 	}
 	text = strings.Repeat(" ", max(0, (width-ansi.StringWidth(text))/2)) + text
@@ -396,32 +401,34 @@ func (m *Model) helpLines() []string {
 		"  Wheel            Scroll the pane under the pointer",
 		"  Shift + wheel    Scroll code horizontally",
 		"  Drag scrollbar   Jump through files or diff",
-		"  Toolbar          Click Mode, Filter, Collapse, Expand, Refresh, Help",
+		"  Toolbar          Click Mode, Search, Collapse, Expand, Refresh, Help",
 		"", "  KEYBOARD",
 		"  Tab              Switch focus between files and diff",
 		"  t                Toggle flat file list / directory tree",
 		"  s                Toggle inline / split diff (old left, new right)",
 		"  j / k · ↑ / ↓    Scroll diff; at an edge, select adjacent file",
-		"  n / p            Next / previous file",
+		"  n / p            Next / previous file; search match when active",
 		"  Space / Enter    Fold / unfold the selected file",
 		"  e                Open selected local file in the default editor",
 		"  v                Toggle viewed; fold and advance when viewed",
-		"  C / E            Collapse / expand all filtered files",
-		"  /                Filter paths; Esc clears the filter",
+		"  C / E            Collapse / expand all files",
+		"  f                Find a file in a fuzzy search popup",
+		"  /                Search all diff text (literal, case-insensitive)",
+		"  Enter / Esc      Confirm search for n/p navigation / clear search",
 		"  Ctrl+D / Ctrl+U  Page down / up (also PgDn / PgUp)",
 		"  g / G            Top / bottom (also Home / End)",
 		"  [ / ]            Previous / next hunk",
 		"  h / l · ← / →    Horizontal scroll; 0 resets",
 		"  m                Toggle review mode: Working tree / Committed",
 		"  r                Reload review scope and diff",
-		"  ?                Toggle help",
+		"  ?                Toggle floating help",
 		"  q / Ctrl+C       Quit (q closes help first)", "",
 		"  TREE (with sidebar focus)",
 		"  j / k · ↑ / ↓    Navigate directories and files",
 		"  h / l · ← / →    Close / open directory; left goes to parent",
 		"  Space / Enter    Toggle directory or file folding",
 		"  Click directory  Expand / collapse its file tree",
-		"  n / p            Review files in diff order in either view",
+		"  n / p            Next / previous file, or match when search is active",
 		"",
 		"  Viewed progress is saved locally for this exact comparison.",
 		"  Working tree and staged changes are excluded.",
@@ -445,18 +452,4 @@ func (m *Model) helpLines() []string {
 		lines = append(lines, "  "+safeText(m.snapshot.Title), "  "+safeText(m.snapshot.URL))
 	}
 	return lines
-}
-
-func (m *Model) helpView(height int) []string {
-	lines := m.helpLines()
-	result := make([]string, height)
-	start := min(m.helpOffset, max(0, len(lines)-height))
-	for i := range result {
-		line := ""
-		if start+i < len(lines) {
-			line = lines[start+i]
-		}
-		result[i] = m.surface(m.palette.foreground, line, m.width)
-	}
-	return result
 }

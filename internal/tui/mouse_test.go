@@ -54,13 +54,13 @@ func TestMouseSidebarSelectFoldAndViewed(t *testing.T) {
 
 func TestMouseFileCardAndToolbar(t *testing.T) {
 	m := sampleModel(true)
-	clickText(t, m, "Filter files")
-	if !m.filtering {
-		t.Fatal("filter field did not accept focus")
+	clickText(t, m, "f Files")
+	if !m.picking {
+		t.Fatal("file finder did not open")
 	}
 	press(m, "docs")
-	clickText(t, m, "Enter Apply")
-	if m.filtering || len(m.visible) != 1 {
+	clickText(t, m, "Enter Open")
+	if m.picking || m.selected != 1 || len(m.visible) != 3 {
 		t.Fatal("apply button failed")
 	}
 	clickText(t, m, "▾ docs/中文.md")

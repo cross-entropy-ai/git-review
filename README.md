@@ -14,7 +14,7 @@ A pull-request-style review experience, right in your terminal. Browse the whole
 
 - **See the whole change.** Get branch-wide and per-file additions and deletions, then jump straight to the code that matters.
 - **Make progress you can see.** Mark a file viewed to fold it and move on. Come back later and pick up the same review where you left off.
-- **Find your way through large diffs.** Switch between a file list and a directory tree, filter by path, and collapse files you've already read.
+- **Find your way through large diffs.** Switch between a file list and a directory tree, find files with fuzzy search, search diff text, and collapse files you've already read.
 - **Review before you commit.** `git review -w` includes staged edits, unstaged edits, and new files Git hasn't tracked yet.
 - **Work the way you like.** Use the keyboard or mouse, with syntax highlighting and automatic light and dark themes.
 
@@ -124,7 +124,7 @@ Quote `'#918'` so the shell passes it as an argument. A full PR URL works outsid
 
 GitHub review calls `gh api` to read PR metadata, paginated file diffs, and Viewed states. It never clones, fetches, or checks out a repository. Missing `gh` or an inactive login produces installation/login instructions. Private repositories require access through the active `gh` account. For GitHub Enterprise, log in to the URL's host with `gh auth login --hostname HOST`.
 
-The header shows **GitHub PR** and the repository/PR number. Inline/split views, the file tree, filtering, and folding work as in local review. The PR scope stays fixed; `m` does not switch to local changes.
+The header shows **GitHub PR** and the repository/PR number. Inline/split views, the file tree, file and text search, and folding work as in local review. The PR scope stays fixed; `m` does not switch to local changes.
 
 - Press `v` or click Viewed to update the file's state on GitHub. `[~]` means the update is still saving; a failure restores the previous state and shows the error.
 - Press `r` to reload both the diff and GitHub's Viewed states. `[!]` means GitHub reports new changes since the file was viewed.
@@ -138,19 +138,24 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 | Key | What it does |
 | --- | --- |
 | `↑` / `↓` or `j` / `k` | Scroll and navigate files |
-| `n` / `p` | Jump to the next / previous file |
+| `n` / `p` | Jump to the next / previous file, or text match when search is active |
 | `Space` | Fold or unfold the selected file |
 | `t` | Toggle Tree/List |
 | `s` | Toggle inline / split diff (old on the left, new on the right) |
 | `e` | Open the selected local file in the default editor |
 | `v` | Mark viewed, fold, and move on |
-| `/` | Find files by path |
+| `f` | Open the fuzzy file finder popup |
+| `/` | Search text across the current comparison's diff |
 | `Tab` | Switch between the sidebar and diff |
 | `m` | Toggle Working tree / Committed |
 | `r` | Refresh the review |
-| `?` / `q` | Help / quit |
+| `?` / `q` | Floating help / quit |
 
 Prefer the mouse? Click a file to jump to it, click its checkbox to mark it viewed, and scroll either pane. In the tree, click a directory to expand or collapse it.
+
+Press `f` for an embedded fzf-style file finder; no external `fzf` installation is needed. Type parts of a filename or path to narrow the list, including rename source paths. Use arrows, Tab/Shift+Tab, or Ctrl+N/P to select, Enter to open, and Esc to cancel. Choosing a file keeps the full review list intact.
+
+Press `/` to search added, removed, and context lines in all loaded diff hunks. Search is literal and case-insensitive, with live highlights and a match counter. Matches in folded files expand automatically; inline and split views are supported. Press Enter to confirm, then `n` / `p` to navigate matches with wraparound. Esc clears the search and restores `n` / `p` file navigation. While typing a query, `n` and `p` remain ordinary text. This searches the displayed comparison, not unchanged repository content outside its hunks. Press `?` for a scrollable help popup; Esc or `q` closes it and returns to the same review position.
 
 Press `e` to edit the selected file in your local working tree, including when reviewing committed changes. The editor follows Git's settings: `GIT_EDITOR`, `core.editor`, `VISUAL`, then `EDITOR`, with Git's fallback (usually `vi`). Editor arguments such as `code --wait` are supported. After closing the editor, press `r` to refresh. Files missing locally and remote PR comparisons without a local working tree cannot be opened.
 

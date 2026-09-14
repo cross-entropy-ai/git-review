@@ -98,7 +98,7 @@ func TestTreeDirectoryKeyboardAndReveal(t *testing.T) {
 	}
 }
 
-func TestTreeMouseCheckboxAndFiltering(t *testing.T) {
+func TestTreeMouseCheckboxAndPicker(t *testing.T) {
 	m := treeModel("main.go", "目录/deep/a.go", "目录/deep/b.go")
 	m.comparison.Files[1].OldPath = "old/name.go"
 	press(m, "t")
@@ -115,24 +115,24 @@ func TestTreeMouseCheckboxAndFiltering(t *testing.T) {
 	if !m.viewed["目录/deep/a.go"] || m.selected != 1 || !m.collapsed["目录/deep/a.go"] {
 		t.Fatal("indented checkbox hit the wrong file")
 	}
-	press(m, "/old/name")
-	press(m, "enter")
-	if len(m.visible) != 1 || len(m.treeRows) != 3 || m.treeRows[2].file != 1 {
-		t.Fatal("rename filter did not include its destination ancestors")
+	press(m, "fold/name")
+	if len(m.fileMatches) != 1 || m.fileMatches[0] != 1 {
+		t.Fatal("rename search did not match old path")
 	}
-	clickText(t, m, "目录/")
-	if len(m.treeRows) != 3 {
-		t.Fatal("filter results were hidden by directory collapse")
-	}
-	press(m, "esc")
-	press(m, "/missing")
 	press(m, "enter")
+	if m.selected != 1 || m.treeRows[m.treeCursor].file != 1 || len(m.visible) != 3 {
+		t.Fatal("picker did not reveal rename destination")
+	}
+	before := len(m.treeRows)
+	press(m, "fmissing")
 	for _, key := range []string{"j", "k", "left", "right", " ", "v", "t", "t"} {
 		press(m, key)
 	}
-	if len(m.treeRows) != 0 || m.viewedCount() != 1 {
-		t.Fatal("empty tree navigation changed review state")
+	if len(m.treeRows) != before || m.viewedCount() != 1 || len(m.fileMatches) != 0 {
+		t.Fatal("empty picker input changed review state")
 	}
+	press(m, "esc")
+
 }
 
 func TestTreeScrollResizeAndThemes(t *testing.T) {
