@@ -91,6 +91,7 @@ type Model struct {
 	commentLine, rangeAnchor      lineRef
 	commentModal, commentReturn   string
 	commentIndex                  int
+	commentAllFiles               bool
 	commentDraft                  review.Comment
 	noteInput                     []rune
 	noteCursor                    int

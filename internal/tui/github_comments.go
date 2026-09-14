@@ -122,6 +122,7 @@ func (m *Model) finishComment(msg commentSavedMsg) {
 	if !msg.threadUpdate {
 		m.commentIndex = max(0, len(items)-1)
 	}
+	m.clampCommentSelection()
 	m.message = "Comment saved on GitHub"
 	if msg.deleted {
 		m.message = "Comment deleted on GitHub"
@@ -135,7 +136,7 @@ func (m *Model) finishComment(msg commentSavedMsg) {
 }
 
 func (m *Model) toggleCommentResolved() tea.Cmd {
-	if len(m.notes.items) == 0 {
+	if m.commentPosition() < 0 {
 		return nil
 	}
 	c := m.notes.items[m.commentIndex]
@@ -173,7 +174,7 @@ func (m *Model) toggleCommentResolved() tea.Cmd {
 }
 
 func (m *Model) replyComment() {
-	if !m.syncComments() || len(m.notes.items) == 0 {
+	if !m.syncComments() || m.commentPosition() < 0 {
 		return
 	}
 	c := m.notes.items[m.commentIndex]

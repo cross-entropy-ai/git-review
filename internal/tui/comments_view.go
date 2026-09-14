@@ -51,14 +51,14 @@ func (m *Model) commentStatus() string {
 	if !m.lineSelecting {
 		return ""
 	}
-	return "  " + commentLocation(m.selectedComment()) + " · c Comment · Shift+↑/↓ Range · Tab Side · Esc Cancel"
+	return "  " + commentLocation(m.selectedComment()) + " · c Comment · Shift+↑/↓ Range · Esc Cancel"
 }
 
 func (m *Model) commentListCapacity() int { return max(1, (m.modalLayout().height-3)/2) }
 
 func (m *Model) commentListStart() int {
 	capacity := m.commentListCapacity()
-	return min(max(0, m.commentIndex-capacity+1), max(0, len(m.notes.items)-capacity))
+	return min(max(0, m.commentPosition()-capacity+1), max(0, len(m.visibleComments())-capacity))
 }
 
 func (m *Model) commentFooter() []control {
@@ -76,7 +76,15 @@ func (m *Model) commentFooter() []control {
 	case "delete":
 		return []control{{label: " Enter Delete ", key: "enter"}, {label: " Esc Keep ", key: "esc"}}
 	default:
-		buttons := []control{{label: " Enter Edit ", key: "enter"}}
+		scope := " Tab All files "
+		if m.commentAllFiles {
+			scope = " Tab Current file "
+		}
+		buttons := []control{{label: scope, key: "tab"}}
+		if m.commentPosition() < 0 {
+			return append(buttons, control{label: " x Export all ", key: "x"}, control{label: " Esc Close ", key: "esc"})
+		}
+		buttons = append(buttons, control{label: " Enter Edit ", key: "enter"})
 		if m.syncComments() {
 			buttons = append(buttons, control{label: " a Reply ", key: "a"})
 		}
@@ -85,7 +93,7 @@ func (m *Model) commentFooter() []control {
 			label = " r Unresolve "
 		}
 		buttons = append(buttons, control{label: label, key: "r"})
-		return append(buttons, control{label: " d Delete ", key: "d"}, control{label: " x Export ", key: "x"}, control{label: " Esc Close ", key: "esc"})
+		return append(buttons, control{label: " d Delete ", key: "d"}, control{label: " x Export all ", key: "x"}, control{label: " Esc Close ", key: "esc"})
 	}
 }
 
@@ -152,13 +160,21 @@ func (m *Model) overlayComments(screen []string) []string {
 			title = "Delete comment from GitHub?"
 		}
 		lines = append(lines, " "+commentLocation(c), "")
-		for _, line := range strings.Split(ansi.Hardwrap(safeText(c.Body), max(1, width-2), true), "\n") {
-			lines = append(lines, " "+line)
+		for _, paragraph := range strings.Split(c.Body, "\n") {
+			for _, line := range strings.Split(ansi.Hardwrap(safeText(paragraph), max(1, width-2), true), "\n") {
+				lines = append(lines, " "+line)
+			}
 		}
 	default:
-		title = fmt.Sprintf("Comments · %d · g Jump to line", len(m.notes.items))
+		indices := m.visibleComments()
+		scope := "Current file"
+		if m.commentAllFiles {
+			scope = "All files"
+		}
+		title = fmt.Sprintf("Comments · %s · %d · g Jump to line", scope, len(indices))
 		start := m.commentListStart()
-		for i := start; i < min(len(m.notes.items), start+m.commentListCapacity()); i++ {
+		for pos := start; pos < min(len(indices), start+m.commentListCapacity()); pos++ {
+			i := indices[pos]
 			c := m.notes.items[i]
 			location := commentLocation(c)
 			if c.RemoteID > 0 {
@@ -184,8 +200,12 @@ func (m *Model) overlayComments(screen []string) []string {
 			}
 			lines = append(lines, label, body)
 		}
-		if len(m.notes.items) == 0 {
-			lines = append(lines, " No comments yet. Press Esc, then c to add one.")
+		if len(indices) == 0 {
+			if !m.commentAllFiles {
+				lines = append(lines, " No comments in this file. Press Tab to view all files.")
+			} else {
+				lines = append(lines, " No comments yet. Press Esc, then c to add one.")
+			}
 		}
 	}
 	frame := []string{m.modalEdge(title, g.width, true)}
@@ -223,7 +243,7 @@ func (m *Model) commentMouse(msg tea.MouseMsg) tea.Cmd {
 			if msg.Button == tea.MouseButtonWheelUp {
 				delta = -1
 			}
-			m.commentIndex = min(max(0, m.commentIndex+delta), max(0, len(m.notes.items)-1))
+			m.moveCommentSelection(delta)
 		}
 		return nil
 	}
@@ -241,8 +261,8 @@ func (m *Model) commentMouse(msg tea.MouseMsg) tea.Cmd {
 		}
 	} else if m.commentModal == "list" {
 		index := m.commentListStart() + (msg.Y-g.y-1)/2
-		if index < len(m.notes.items) {
-			m.commentIndex = index
+		if indices := m.visibleComments(); index < len(indices) {
+			m.commentIndex = indices[index]
 		}
 	}
 	return nil

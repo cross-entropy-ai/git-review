@@ -49,6 +49,44 @@ func (m *Model) controls() []control {
 			x--
 		}
 	}
+	left := func(y, limit int, buttons ...control) {
+		x := 1
+		for _, button := range buttons {
+			button.width = ansi.StringWidth(button.label)
+			if x+button.width > limit {
+				break
+			}
+			button.x, button.y = x, y
+			controls = append(controls, button)
+			x += button.width + 1
+		}
+	}
+	if m.lineSelecting || m.commentModal != "" {
+		label := " Add comment · Select lines "
+		buttons := []control{{label: " c Write ", key: "c"}, {label: " ↑/↓ Move "}, {label: " Shift+↑/↓ Range "}}
+		buttons = append(buttons, control{label: " Esc Cancel ", key: "esc"})
+		if m.commentModal != "" {
+			label = " Comments "
+			buttons = m.commentFooter()
+			switch m.commentModal {
+			case "edit":
+				label = " Comment · Edit text "
+				if !m.commentSaving {
+					buttons = append(buttons, control{label: " Enter Newline ", key: "enter"})
+				}
+			case "export":
+				label = " Export Markdown "
+			case "delete":
+				label = " Delete comment "
+			}
+		}
+		right(0, control{label: label})
+		left(2, m.width-rightInset, buttons...)
+		if m.commentModal == "" {
+			left(m.height-1, m.width-rightInset, buttons...)
+		}
+		return controls
+	}
 	mode := control{label: m.modeLabel(), key: "m"}
 	if len(m.source.Modes()) < 2 {
 		mode.key = ""
@@ -95,8 +133,6 @@ func (m *Model) controls() []control {
 	footerLimit := m.width - rightInset
 	if m.help || m.picking || m.hasAlert() || m.commentModal != "" {
 		buttons = nil
-	} else if m.lineSelecting {
-		buttons = []control{{label: " c Write ", key: "c"}, {label: " Shift+↑/↓ Range "}, {label: " Tab Side ", key: "tab"}, {label: " Esc Cancel ", key: "esc"}}
 	} else if m.searching {
 		buttons = []control{{label: " Enter Done ", key: "enter"}, {label: " Esc Clear ", key: "esc"}}
 	} else {
@@ -104,16 +140,7 @@ func (m *Model) controls() []control {
 		right(m.height-1, help, quit)
 		footerLimit -= ansi.StringWidth(help.label) + ansi.StringWidth(quit.label) + 2
 	}
-	x := 1
-	for _, button := range buttons {
-		button.width = ansi.StringWidth(button.label)
-		if x+button.width > footerLimit {
-			break
-		}
-		button.x, button.y = x, m.height-1
-		controls = append(controls, button)
-		x += button.width + 1
-	}
+	left(m.height-1, footerLimit, buttons...)
 	return controls
 }
 

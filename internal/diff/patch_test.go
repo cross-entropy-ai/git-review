@@ -13,3 +13,19 @@ func TestParseAPIPatch(t *testing.T) {
 		}
 	}
 }
+
+func TestCommentExcerptAllowsOnlyIncompleteTail(t *testing.T) {
+	patch := "@@ -1,3 +1,5 @@\n function retry() {\n-  return 1000;\n+  const base = 250;\n+  const max = 5000;"
+	h, err := ParseCommentHunks(patch)
+	if err != nil || len(h) != 1 || h[0].Lines[3].New != 3 {
+		t.Fatalf("comment excerpt: %+v %v", h, err)
+	}
+	if _, err := ParseHunks(patch); err == nil {
+		t.Fatal("file patch validation accepted an incomplete hunk")
+	}
+	for _, invalid := range []string{"", "@@ -0,0 +1 @@\n+a\n+b", "@@ -1,3 +1,3 @@\n a\n@@ -5 +5 @@\n b", "@@ -1 +1 @@\n?invalid"} {
+		if _, err := ParseCommentHunks(invalid); err == nil {
+			t.Fatalf("accepted invalid excerpt %q", invalid)
+		}
+	}
+}

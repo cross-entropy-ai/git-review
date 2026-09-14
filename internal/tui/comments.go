@@ -363,8 +363,49 @@ func (m *Model) openComments() {
 		m.message = "Wait for the comparison to finish loading"
 		return
 	}
+	if m.commentModal == "" {
+		m.commentAllFiles = false
+	}
 	m.commentModal, m.dragging = "list", ""
-	m.commentIndex = min(m.commentIndex, max(0, len(m.notes.items)-1))
+	m.clampCommentSelection()
+}
+
+// Keep commentIndex in the backing list so edits never target another file
+// when the visible list is filtered.
+func (m *Model) visibleComments() []int {
+	path := ""
+	if m.selected >= 0 && m.selected < len(m.comparison.Files) {
+		path = m.comparison.Files[m.selected].Path
+	}
+	var indices []int
+	for i, c := range m.notes.items {
+		if m.commentAllFiles || c.Path == path {
+			indices = append(indices, i)
+		}
+	}
+	return indices
+}
+
+func (m *Model) commentPosition() int {
+	for pos, index := range m.visibleComments() {
+		if index == m.commentIndex {
+			return pos
+		}
+	}
+	return -1
+}
+
+func (m *Model) clampCommentSelection() {
+	if indices := m.visibleComments(); len(indices) > 0 && m.commentPosition() < 0 {
+		m.commentIndex = indices[0]
+	}
+}
+
+func (m *Model) moveCommentSelection(delta int) {
+	indices := m.visibleComments()
+	if len(indices) > 0 {
+		m.commentIndex = indices[min(max(0, m.commentPosition()+delta), len(indices)-1)]
+	}
 }
 
 func (m *Model) openExport() {
@@ -436,6 +477,10 @@ func (m *Model) commentKey(msg tea.KeyMsg) tea.Cmd {
 		case "esc":
 			m.commentModal = "list"
 		case "enter":
+			if m.commentPosition() < 0 {
+				m.openComments()
+				return nil
+			}
 			if m.syncComments() && m.notes.items[m.commentIndex].RemoteID > 0 {
 				return m.sendComment(m.notes.items[m.commentIndex], true)
 			}
@@ -451,9 +496,12 @@ func (m *Model) commentKey(msg tea.KeyMsg) tea.Cmd {
 		case "esc", "q", "C":
 			m.commentModal = ""
 		case "j", "down":
-			m.commentIndex = min(m.commentIndex+1, max(0, len(m.notes.items)-1))
+			m.moveCommentSelection(1)
 		case "k", "up":
-			m.commentIndex = max(0, m.commentIndex-1)
+			m.moveCommentSelection(-1)
+		case "tab", "shift+tab":
+			m.commentAllFiles = !m.commentAllFiles
+			m.clampCommentSelection()
 		case "x":
 			m.openExport()
 		case "a":
@@ -461,17 +509,17 @@ func (m *Model) commentKey(msg tea.KeyMsg) tea.Cmd {
 		case "r":
 			return m.toggleCommentResolved()
 		case "enter", "e":
-			if len(m.notes.items) > 0 {
+			if m.commentPosition() >= 0 {
 				m.commentDraft = m.notes.items[m.commentIndex]
 				m.commentReturn = "list"
 				m.startCommentEditor()
 			}
 		case "d":
-			if len(m.notes.items) > 0 {
+			if m.commentPosition() >= 0 {
 				m.commentModal = "delete"
 			}
 		case "g":
-			if len(m.notes.items) > 0 {
+			if m.commentPosition() >= 0 {
 				m.jumpComment(m.notes.items[m.commentIndex])
 			}
 		}

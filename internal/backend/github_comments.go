@@ -59,7 +59,7 @@ func (a apiComment) comment() review.Comment {
 	}
 	if c.StartSide != "" && c.StartSide != c.Side {
 		c.Code = a.DiffHunk
-	} else if hunks, err := diff.ParseHunks(a.DiffHunk); err == nil {
+	} else if hunks, err := diff.ParseCommentHunks(a.DiffHunk); err == nil {
 		var lines []string
 		for _, h := range hunks {
 			for _, l := range h.Lines {

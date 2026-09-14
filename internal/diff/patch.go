@@ -11,6 +11,16 @@ var headerPattern = regexp.MustCompile(`^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))?
 
 // ParseHunks reads a single file's API patch and rejects incomplete hunks.
 func ParseHunks(patch string) ([]Hunk, error) {
+	return parseHunks(patch, false)
+}
+
+// ParseCommentHunks reads GitHub comment excerpts, whose final hunk may stop
+// at the commented line before reaching the header's full line counts.
+func ParseCommentHunks(patch string) ([]Hunk, error) {
+	return parseHunks(patch, true)
+}
+
+func parseHunks(patch string, allowPartialTail bool) ([]Hunk, error) {
 	var hunks []Hunk
 	old, next, oldLeft, newLeft := 0, 0, 0, 0
 	for _, line := range strings.Split(strings.TrimSuffix(patch, "\n"), "\n") {
@@ -66,7 +76,7 @@ func ParseHunks(patch string) ([]Hunk, error) {
 		h := &hunks[len(hunks)-1]
 		h.Lines = append(h.Lines, entry)
 	}
-	if oldLeft != 0 || newLeft != 0 {
+	if !allowPartialTail && (oldLeft != 0 || newLeft != 0) {
 		return nil, fmt.Errorf("incomplete diff hunk")
 	}
 	return hunks, nil
