@@ -231,9 +231,12 @@ func TestCommentMouseSelectionAndConfirmation(t *testing.T) {
 		t.Fatal("click did not select a source line")
 	}
 	m.Update(tea.MouseMsg{X: g.diffX + 20, Y: contentTop + 4, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress, Shift: true})
+	if m.rangeSelecting {
+		t.Fatal("shift-click entered range selection")
+	}
 	press(m, "c")
-	if m.commentDraft.Start != 1 || m.commentDraft.End != 3 {
-		t.Fatal("shift-click did not select a range")
+	if m.commentDraft.Start != 3 || m.commentDraft.End != 3 {
+		t.Fatal("click did not select a single line")
 	}
 	notePaste(m, "mouse note")
 	clickText(t, m, "Ctrl+S Save")

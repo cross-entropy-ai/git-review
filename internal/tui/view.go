@@ -417,7 +417,7 @@ func (m *Model) helpLines() []string {
 		"  Click ▾ / ▸      Fold / unfold a file",
 		"  Click [ ]        Toggle viewed without advancing",
 		"  Click diff title Fold / unfold; click Viewed to mark",
-		"  Click code       Select a line for a comment; Shift-click a range",
+		"  Click code       Focus file; select a line in comment mode",
 		"  Wheel            Scroll the pane under the pointer",
 		"  Shift + wheel    Scroll code horizontally",
 		"  Drag scrollbar   Jump through files or diff",

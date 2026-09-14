@@ -157,14 +157,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 				}
 			}
 			if ref, ok := m.lineAt(index, side); ok {
-				if msg.Shift && m.lineSelecting && ref.file == m.commentLine.file && ref.hunk == m.commentLine.hunk && ref.side == m.commentLine.side {
-					if !m.rangeSelecting {
-						m.rangeAnchor = m.commentLine
-					}
-					m.rangeSelecting = true
-				} else {
-					m.rangeSelecting = false
-				}
+				m.rangeSelecting = false
 				m.selectCommentLine(index, ref)
 			}
 			return nil
