@@ -51,8 +51,8 @@ func TestModeControlVisibleAndClickable(t *testing.T) {
 				}
 			}
 			_, cmd := m.Update(tea.MouseMsg{X: ansi.StringWidth(header[:index]) + 3, Y: 0, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
-			if cmd == nil || !m.loading {
-				t.Fatal("clicking the visible mode control did not start loading")
+			if cmd == nil || !m.picking || !m.modePicking || m.loading {
+				t.Fatal("clicking the visible mode control did not open the picker")
 			}
 			if m.mode != resolved {
 				t.Fatal("mode changed before the comparison finished loading")
@@ -101,9 +101,29 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := localModel(c, opts, false, false, DarkTheme)
+	switchCommand := func() tea.Cmd {
+		t.Helper()
+		cmd := m.activate("m")
+		if cmd == nil {
+			t.Fatal("mode picker did not load targets")
+		}
+		// Populate the list; statistics can finish independently of selection.
+		m.Update(cmd())
+		query := "Working tree"
+		if m.mode == gitdiff.ModeWorkingTree {
+			query = "feature"
+		}
+		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(query), Paste: true})
+		return m.activate("enter")
+	}
 	load := func(key string) {
 		t.Helper()
-		cmd := m.activate(key)
+		var cmd tea.Cmd
+		if key == "m" {
+			cmd = switchCommand()
+		} else {
+			cmd = m.activate(key)
+		}
 		if cmd == nil {
 			t.Fatalf("%s did not start a load", key)
 		}
@@ -147,11 +167,29 @@ func TestModeSwitchLoadsDiffAndPreservesRefs(t *testing.T) {
 	load("m")
 	check(gitdiff.ModeCommitted, "committed.txt")
 
+	// Refresh follows the selected branch even though startup used a pinned commit.
+	git("switch", "-q", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "committed.txt"), []byte("committed.txt\nnew line\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "committed.txt")
+	git("commit", "-qm", "advance feature")
+	git("switch", "-q", "main")
+	before := git("status", "--porcelain=v1")
+	load("r")
+	check(gitdiff.ModeCommitted, "committed.txt")
+	if m.comparison.Added != 2 || m.snapshot.TargetHead != "refs/heads/feature" {
+		t.Fatal("refresh did not follow selected branch")
+	}
+	if git("symbolic-ref", "--short", "HEAD") != "main" || git("status", "--porcelain=v1") != before {
+		t.Fatal("review switching changed the checkout")
+	}
+
 	// A failed switch must leave the current diff and mode consistent.
 	load("m")
 	m.source.(*backend.Local).Options.Base = "missing-ref"
 	previous := m.comparison
-	cmd := m.activate("m")
+	cmd := switchCommand()
 	m.Update(cmd())
 	if m.mode != gitdiff.ModeWorkingTree || m.comparison != previous || m.loading || !strings.Contains(m.message, "failed") {
 		t.Fatalf("failed switch corrupted the current review: %+v, %s", m.source.(*backend.Local).Options, m.message)

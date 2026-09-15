@@ -93,7 +93,7 @@ git review -w                # --working-tree: staged, unstaged, and untracked c
 git review -c                # --committed: committed changes, even with local edits
 ```
 
-Committed review compares `merge-base(base, head)` to `head`. Both refs can be branches, tags, or commit IDs. Passing refs selects committed review; add `--auto` to use them only as the fallback when there are no local changes. The three mode flags are mutually exclusive. Auto only selects the initial scope at startup. The highlighted Mode control shows Working tree or Committed. Click it or press `m` to toggle between them; your base/head refs are preserved.
+Committed review compares `merge-base(base, head)` to `head`. Both refs can be branches, tags, or commit IDs. Passing refs selects committed review; add `--auto` to use them only as the fallback when there are no local changes. The three mode flags are mutually exclusive. Auto only selects the initial scope at startup. The highlighted Mode control shows Working tree or Committed. Click it or press `m` to open a fuzzy-search popup listing Working tree and local branches. Type to filter, use ↑/↓ to select, Enter to open, or Esc to cancel. Each row shows added/deleted line totals; branch totals use the configured base (or the default base) and the same merge-base comparison as the review. Selecting a branch changes the review without checking it out; refresh keeps the selected scope. Startup base/head options are preserved.
 
 A few useful variations:
 
@@ -125,7 +125,7 @@ Quote `'#918'` so the shell passes it as an argument. A full PR URL works outsid
 
 GitHub review calls `gh api` to read PR metadata, paginated file diffs, and Viewed states. It never clones, fetches, or checks out a repository. Missing `gh` or an inactive login produces installation/login instructions. Private repositories require access through the active `gh` account. For GitHub Enterprise, log in to the URL's host with `gh auth login --hostname HOST`.
 
-The header shows **GitHub PR** and the repository/PR number. Inline/split views, the file tree, file and text search, and folding work as in local review. The PR scope stays fixed; `m` does not switch to local changes.
+The header shows **GitHub PR** and the repository/PR number. Inline/split views, the file tree, file and text search, and folding work as in local review. The PR scope stays fixed; clicking Mode or pressing `m` explains why switching is unavailable.
 
 - Press `v` or click Viewed to update the file's state on GitHub. `[~]` means the update is still saving; a failure restores the previous state and opens an error dialog for confirmation.
 - Press `r` to reload both the diff and GitHub's Viewed states. `[!]` means GitHub reports new changes since the file was viewed.
@@ -152,7 +152,7 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 | `C` | Browse, edit, delete, or jump to saved comments |
 | `x` | Export comments as Markdown |
 | `Tab` | Switch between the sidebar and diff |
-| `m` | Toggle Working tree / Committed |
+| `m` | Search and select Working tree / local branch |
 | `r` | Refresh the review |
 | `?` / `q` | Floating help / quit |
 

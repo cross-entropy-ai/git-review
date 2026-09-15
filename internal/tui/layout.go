@@ -88,9 +88,6 @@ func (m *Model) controls() []control {
 		return controls
 	}
 	mode := control{label: m.modeLabel(), key: "m"}
-	if len(m.source.Modes()) < 2 {
-		mode.key = ""
-	}
 	if m.width >= 90 {
 		right(0, mode, control{label: " r Refresh ", key: "r"}, control{label: " ? Help ", key: "?"})
 	} else if m.width >= 70 {

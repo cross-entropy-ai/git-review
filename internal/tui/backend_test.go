@@ -50,6 +50,10 @@ func TestRemoteViewedAsyncSuccessFailureAndRefresh(t *testing.T) {
 	if cmd := m.activate("m"); cmd != nil {
 		t.Fatal("PR review switched to local")
 	}
+	if !m.hasAlert() || !strings.Contains(m.message, "fixed scope") {
+		t.Fatal("PR mode did not explain disabled switching")
+	}
+	m.activate("enter")
 	cmd := m.activate("v")
 	if cmd == nil || f.saves != 0 || !m.viewed["main.go"] || !strings.Contains(m.View(), "[~]") {
 		t.Fatal("Viewed did not save asynchronously")

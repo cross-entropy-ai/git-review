@@ -9,6 +9,8 @@ import (
 )
 
 func (m *Model) openPicker() {
+	m.closePicker()
+	m.modePicking = false
 	m.picking, m.dragging, m.fileQuery = true, "", ""
 	m.updateFileMatches()
 	for i, file := range m.fileMatches {
@@ -57,6 +59,10 @@ func fuzzyScore(path, query string) (int, bool) {
 }
 
 func (m *Model) updateFileMatches() {
+	if m.modePicking {
+		m.updateTargetMatches()
+		return
+	}
 	type candidate struct{ file, score int }
 	var candidates []candidate
 	for i, file := range m.comparison.Files {
@@ -91,23 +97,27 @@ func (m *Model) clampPicker() {
 	}
 }
 
-func (m *Model) chooseFile() {
+func (m *Model) chooseFile() tea.Cmd {
+	if m.modePicking {
+		return m.chooseTarget()
+	}
 	if len(m.fileMatches) == 0 {
-		return
+		return nil
 	}
 	m.selected = m.fileMatches[m.fileCursor]
 	m.picking, m.fileFocus, m.xOffset = false, false, 0
 	m.collapsed[m.comparison.Files[m.selected].Path] = false
 	m.rebuild()
 	m.jumpSelected()
+	return nil
 }
 
-func (m *Model) pickerKey(msg tea.KeyMsg) {
+func (m *Model) pickerKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "esc":
-		m.picking = false
+		m.closePicker()
 	case "enter":
-		m.chooseFile()
+		return m.chooseFile()
 	case "down", "ctrl+n", "tab":
 		m.fileCursor++
 	case "up", "ctrl+p", "shift+tab":
@@ -124,4 +134,5 @@ func (m *Model) pickerKey(msg tea.KeyMsg) {
 		}
 	}
 	m.clampPicker()
+	return nil
 }

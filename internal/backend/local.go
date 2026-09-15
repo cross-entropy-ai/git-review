@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/cross-entropy-ai/git-review/internal/diff"
@@ -87,4 +88,49 @@ func (l *Local) SetViewed(ctx context.Context, s *Snapshot, path string, viewed 
 	}
 	state[path] = viewed
 	return review.Save(filename, state)
+}
+
+func (l *Local) Targets(ctx context.Context) ([]Target, error) {
+	refs, err := gitdiff.LocalBranches(ctx, l.Options.Dir)
+	if err != nil {
+		return nil, err
+	}
+	targets := []Target{{Mode: diff.ModeWorkingTree, Label: "Working tree"}}
+	for _, ref := range refs {
+		targets = append(targets, Target{Mode: diff.ModeCommitted, Head: ref, Label: strings.TrimPrefix(ref, "refs/heads/")})
+	}
+	return targets, nil
+}
+
+func (l *Local) targetOptions(target Target) gitdiff.Options {
+	opts := l.Options
+	opts.Mode = target.Mode
+	if target.Mode == diff.ModeWorkingTree {
+		opts.Base, opts.Head = "", "HEAD"
+	} else if target.Head != "" {
+		opts.Head = target.Head
+	}
+	return opts
+}
+
+func (l *Local) TargetStats(ctx context.Context, target Target) (Target, error) {
+	c, err := gitdiff.Summary(ctx, l.targetOptions(target))
+	if err != nil {
+		return target, err
+	}
+	target.Added, target.Deleted, target.StatsReady = c.Added, c.Deleted, true
+	return target, nil
+}
+
+func (l *Local) LoadTarget(ctx context.Context, target Target) (*Snapshot, error) {
+	c, err := gitdiff.Load(ctx, l.targetOptions(target))
+	if err != nil {
+		return nil, err
+	}
+	c.Head = strings.TrimPrefix(c.Head, "refs/heads/")
+	s := l.Restore(c)
+	if target.Mode == diff.ModeCommitted {
+		s.TargetHead = target.Head
+	}
+	return s, nil
 }

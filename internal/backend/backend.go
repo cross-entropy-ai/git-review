@@ -33,6 +33,7 @@ type Snapshot struct {
 	Label       string
 	URL         string
 	Title       string
+	TargetHead  string // Explicit local review ref; empty preserves startup options.
 	Viewer      string
 	Viewed      map[string]ViewedState
 	Persistence Persistence
@@ -66,4 +67,21 @@ type Backend interface {
 	Load(context.Context, diff.Mode) (*Snapshot, error)
 	SetViewed(context.Context, *Snapshot, string, bool) error
 	Modes() []diff.Mode
+}
+
+// Target describes a local review scope and its optional line totals.
+type Target struct {
+	Mode           diff.Mode
+	Head           string
+	Label          string
+	Added, Deleted int
+	StatsReady     bool
+	StatsError     string
+}
+
+// TargetBackend lets local reviews select a scope without checking out a branch.
+type TargetBackend interface {
+	Targets(context.Context) ([]Target, error)
+	TargetStats(context.Context, Target) (Target, error)
+	LoadTarget(context.Context, Target) (*Snapshot, error)
 }

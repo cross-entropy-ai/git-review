@@ -40,3 +40,15 @@ func OriginURL(ctx context.Context, dir string) (string, error) {
 	}
 	return strings.TrimSpace(out), nil
 }
+
+// LocalBranches returns full ref names in stable alphabetical order.
+func LocalBranches(ctx context.Context, dir string) ([]string, error) {
+	out, err := run(ctx, dir, "for-each-ref", "--sort=refname", "--format=%(refname)", "refs/heads/")
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(out) == "" {
+		return nil, nil
+	}
+	return strings.Split(strings.TrimSuffix(out, "\n"), "\n"), nil
+}

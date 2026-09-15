@@ -20,7 +20,7 @@ func hasLocalChanges(ctx context.Context, root string) (bool, error) {
 	return status != "", err
 }
 
-func loadWorkingTree(ctx context.Context, c *Comparison, contextLines int) (*Comparison, error) {
+func loadWorkingTree(ctx context.Context, c *Comparison, contextLines int, summary bool) (*Comparison, error) {
 	head, err := run(ctx, c.Root, "rev-parse", "--verify", "HEAD^{commit}")
 	if err != nil {
 		return nil, fmt.Errorf("working-tree review needs an existing HEAD commit: %w", err)
@@ -98,7 +98,7 @@ func loadWorkingTree(ctx context.Context, c *Comparison, contextLines int) (*Com
 		return nil, fmt.Errorf("write working-tree snapshot: %w", err)
 	}
 	c.HeadOID = strings.TrimSpace(tree)
-	return loadDiff(c, contextLines, func(args ...string) (string, error) {
+	return readDiff(c, contextLines, summary, func(args ...string) (string, error) {
 		return snapshot("", args...)
 	})
 }

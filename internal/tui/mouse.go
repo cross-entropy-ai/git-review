@@ -18,8 +18,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		return m.commentMouse(msg)
 	}
 	if m.help || m.picking {
-		m.modalMouse(msg)
-		return nil
+		return m.modalMouse(msg)
 	}
 	g := m.layout()
 	if msg.Action == tea.MouseActionMotion {

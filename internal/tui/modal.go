@@ -96,8 +96,11 @@ func (m *Model) overlayModal(screen []string) []string {
 		}
 	} else {
 		title = "Find file · fuzzy search"
+		if m.modePicking {
+			title = "Review mode · fuzzy search"
+		}
 		query := safeText(m.fileQuery) + "▏"
-		count := fmt.Sprintf(" %d/%d ", len(m.fileMatches), len(m.comparison.Files))
+		count := fmt.Sprintf(" %d/%d ", len(m.fileMatches), m.pickerTotal())
 		queryWidth := max(1, width-ansi.StringWidth(count)-3)
 		query = m.ink(m.palette.accent, " > ") + ansi.Cut(query, max(0, ansi.StringWidth(query)-queryWidth), ansi.StringWidth(query))
 		badge := m.surfaceWithBackground(m.palette.accent, m.palette.modal.selection, count, ansi.StringWidth(count))
@@ -107,23 +110,14 @@ func (m *Model) overlayModal(screen []string) []string {
 			index := m.fileOffset + i
 			line := ""
 			if index < len(m.fileMatches) {
-				file := m.comparison.Files[m.fileMatches[index]]
-				name := safeText(file.Path)
-				if file.OldPath != "" {
-					fg := m.palette.modal.muted
-					if index == m.fileCursor {
-						fg = m.palette.foreground
-					}
-					name += m.ink(fg, " ← "+safeText(file.OldPath))
-				}
-				stats := " " + m.stats(file.Added, file.Deleted) + " "
+				name, stats := m.pickerRow(m.fileMatches[index], index == m.fileCursor)
 				nameWidth := max(0, width-ansi.StringWidth(stats))
 				line = fit("   "+name, nameWidth) + stats
 				if index == m.fileCursor {
 					line = m.surfaceWithBackground(m.palette.accent, m.palette.modal.selection, fit(m.bold(" › "+name), nameWidth)+stats, width)
 				}
 			} else if i == 0 {
-				line = m.ink(m.palette.modal.muted, " No files match")
+				line = m.ink(m.palette.modal.muted, m.pickerEmptyLabel())
 			}
 			content = append(content, line)
 		}
@@ -155,14 +149,14 @@ func (m *Model) overlayFrame(screen []string, g modalGeometry, frame []string) [
 	return screen
 }
 
-func (m *Model) modalMouse(msg tea.MouseMsg) {
+func (m *Model) modalMouse(msg tea.MouseMsg) tea.Cmd {
 	if msg.Action == tea.MouseActionRelease {
 		m.dragging = ""
-		return
+		return nil
 	}
 	g := m.modalLayout()
 	if msg.X < g.x || msg.X >= g.x+g.width || msg.Y < g.y || msg.Y >= g.y+g.height {
-		return
+		return nil
 	}
 	if tea.MouseEvent(msg).IsWheel() {
 		delta := 3
@@ -175,10 +169,10 @@ func (m *Model) modalMouse(msg tea.MouseMsg) {
 			m.fileCursor += delta
 			m.clampPicker()
 		}
-		return
+		return nil
 	}
 	if msg.Button != tea.MouseButtonLeft || msg.Action != tea.MouseActionPress {
-		return
+		return nil
 	}
 	if msg.Y == g.y+g.height-2 {
 		x := msg.X - g.x - 1
@@ -187,17 +181,18 @@ func (m *Model) modalMouse(msg tea.MouseMsg) {
 				m.help = false
 			}
 		} else if x >= 0 && x < len(fileOpenLabel) {
-			m.chooseFile()
+			return m.chooseFile()
 		} else if x >= len(fileOpenLabel)+1 && x < len(fileOpenLabel)+1+len(fileCancelLabel) {
-			m.picking = false
+			m.closePicker()
 		}
-		return
+		return nil
 	}
 	if m.picking && msg.Y >= g.y+3 && msg.Y < g.y+g.height-2 {
 		index := m.fileOffset + msg.Y - g.y - 3
 		if index < len(m.fileMatches) {
 			m.fileCursor = index
-			m.chooseFile()
+			return m.chooseFile()
 		}
 	}
+	return nil
 }

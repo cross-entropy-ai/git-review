@@ -84,6 +84,13 @@ type Model struct {
 	loading      bool
 	message      string
 
+	modePicking      bool
+	modeTargets      []backend.Target
+	targetsLoading   bool
+	pickerGeneration int
+	pickerContext    context.Context
+	pickerCancel     context.CancelFunc
+
 	notes                         *commentState
 	commentStates                 map[string]*commentState
 	lineSelecting, rangeSelecting bool
@@ -147,6 +154,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.clampAlert()
 		m.clampOffset()
 		m.ensureSelectedVisible()
+	case targetsMsg:
+		return m, m.finishTargets(msg)
+	case targetStatsMsg:
+		return m, m.finishTargetStats(msg)
 	case loadedMsg:
 		m.loading = false
 		if msg.err != nil {
@@ -210,8 +221,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.commentKey(msg)
 		}
 		if m.picking {
-			m.pickerKey(msg)
-			return m, nil
+			return m, m.pickerKey(msg)
 		}
 		if m.searching {
 			m.searchKey(msg)
@@ -360,15 +370,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "[":
 			m.moveHunk(-1)
 		case "m":
-			modes := m.source.Modes()
-			if len(modes) < 2 {
-				return m, nil
-			}
-			for i, mode := range modes {
-				if mode == m.mode {
-					return m, m.reload(modes[(i+1)%len(modes)])
-				}
-			}
+			return m, m.openModePicker()
 		case "r":
 			return m, m.reload(m.mode)
 		}
@@ -378,6 +380,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // Mode and progress are replaced only after the backend finishes successfully.
 func (m *Model) reload(mode diff.Mode) tea.Cmd {
+	if source, ok := m.source.(backend.TargetBackend); ok && m.snapshot.TargetHead != "" && mode == diff.ModeCommitted {
+		target := backend.Target{Mode: mode, Head: m.snapshot.TargetHead}
+		return m.loadComparison(modeName(mode), func() (*backend.Snapshot, error) { return source.LoadTarget(m.ctx, target) })
+	}
+	return m.loadComparison(modeName(mode), func() (*backend.Snapshot, error) { return m.source.Load(m.ctx, mode) })
+}
+
+func (m *Model) loadComparison(label string, load func() (*backend.Snapshot, error)) tea.Cmd {
 	if m.commentSaving {
 		m.message = "Wait for the GitHub comment operation to finish"
 		return nil
@@ -390,9 +400,9 @@ func (m *Model) reload(mode diff.Mode) tea.Cmd {
 		return nil
 	}
 	m.loading = true
-	m.message = "Loading " + modeName(mode) + "…"
+	m.message = "Loading " + safeText(label) + "…"
 	return func() tea.Msg {
-		s, err := m.source.Load(m.ctx, mode)
+		s, err := load()
 		return loadedMsg{snapshot: s, err: err}
 	}
 }
@@ -409,6 +419,9 @@ func modeName(mode diff.Mode) string {
 }
 
 func (m *Model) modeLabel() string {
+	if m.mode == diff.ModePullRequest {
+		return " Mode: GitHub PR · locked "
+	}
 	key := " m"
 	if len(m.source.Modes()) < 2 {
 		key = ""
