@@ -15,18 +15,20 @@ const (
 )
 
 type palette struct {
-	headerBackground    string
-	selectionBackground string
-	addedBackground     string
-	deletedBackground   string
-	border              string
-	foreground          string
-	muted               string
-	accent              string
-	green               string
-	red                 string
-	syntaxStyle         string
-	modal               modalPalette
+	headerBackground        string
+	selectionBackground     string
+	addedBackground         string
+	addedInlineBackground   string
+	deletedInlineBackground string
+	deletedBackground       string
+	border                  string
+	foreground              string
+	muted                   string
+	accent                  string
+	green                   string
+	red                     string
+	syntaxStyle             string
+	modal                   modalPalette
 }
 
 type modalPalette struct {
@@ -37,17 +39,19 @@ type modalPalette struct {
 func paletteFor(theme Theme) palette {
 	if theme == LightTheme {
 		return palette{
-			headerBackground:    "e4e8ed",
-			selectionBackground: "d8e9fc",
-			addedBackground:     "dafbe1",
-			deletedBackground:   "ffebe9",
-			border:              "a0a8b2",
-			foreground:          "24292f",
-			muted:               "57606a",
-			accent:              "0959b0",
-			green:               "116329",
-			red:                 "b42332",
-			syntaxStyle:         "github",
+			headerBackground:        "e4e8ed",
+			selectionBackground:     "d8e9fc",
+			addedBackground:         "dafbe1",
+			addedInlineBackground:   "64d483",
+			deletedInlineBackground: "ff9b96",
+			deletedBackground:       "ffebe9",
+			border:                  "a0a8b2",
+			foreground:              "24292f",
+			muted:                   "57606a",
+			accent:                  "0959b0",
+			green:                   "116329",
+			red:                     "b42332",
+			syntaxStyle:             "github",
 			modal: modalPalette{
 				background: "ffffff", header: "f0f5fc", border: "8092ac", selection: "dceafd",
 				muted: "52637b", shadow: "d4dbe5", backdrop: "8490a0",
@@ -55,17 +59,19 @@ func paletteFor(theme Theme) palette {
 		}
 	}
 	return palette{
-		headerBackground:    "2b3038",
-		selectionBackground: "233e5a",
-		addedBackground:     "173b27",
-		deletedBackground:   "4b2026",
-		border:              "4b5563",
-		foreground:          "e1e7ef",
-		muted:               "a0aab8",
-		accent:              "8bc4ff",
-		green:               "85d996",
-		red:                 "ff9b98",
-		syntaxStyle:         "github-dark",
+		headerBackground:        "2b3038",
+		selectionBackground:     "233e5a",
+		addedBackground:         "142d20",
+		addedInlineBackground:   "287340",
+		deletedInlineBackground: "aa3b46",
+		deletedBackground:       "381c23",
+		border:                  "4b5563",
+		foreground:              "e1e7ef",
+		muted:                   "a0aab8",
+		accent:                  "8bc4ff",
+		green:                   "85d996",
+		red:                     "ff9b98",
+		syntaxStyle:             "github-dark",
 		modal: modalPalette{
 			background: "1b2230", header: "263348", border: "617899", selection: "2b4668",
 			muted: "a6b8d0", shadow: "080d16", backdrop: "738195",

@@ -343,12 +343,7 @@ func (m *Model) renderRowContent(row row, width int) string {
 			m.renderSplitCell(row, row.rightLine, true, rightWidth)
 	case 'l':
 		line := file.Hunks[row.hunk].Lines[row.line]
-		key := highlightKey{file: row.file, hunk: row.hunk}
-		if _, ok := m.highlights[key]; !ok {
-			file.Hunks = file.Hunks[row.hunk : row.hunk+1]
-			m.highlights[key] = highlightFile(file, m.color, m.palette.syntaxStyle)[0]
-		}
-		code := m.highlightSearch(m.highlights[key][row.line], row.file, row.hunk, row.line)
+		code := m.highlightSearch(m.highlightedHunk(row.file, row.hunk)[row.line], row.file, row.hunk, row.line)
 		oldNumber, newNumber := "", ""
 		if line.Old > 0 {
 			oldNumber = fmt.Sprint(line.Old)

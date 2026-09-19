@@ -92,6 +92,8 @@ func TestThemeTextContrast(t *testing.T) {
 			"search other":    {p.foreground, p.selectionBackground},
 			"added code":      {p.foreground, p.addedBackground},
 			"deleted code":    {p.foreground, p.deletedBackground},
+			"added inline":    {p.foreground, p.addedInlineBackground},
+			"deleted inline":  {p.foreground, p.deletedInlineBackground},
 			"added numbers":   {p.green, p.addedBackground},
 			"deleted numbers": {p.red, p.deletedBackground},
 		}

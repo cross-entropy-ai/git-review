@@ -32,6 +32,7 @@ cat > "$fixture/config.json" <<'EOF'
 {
   "port": 8080,
   "timeout": 10,
+  "endpoint": "http://localhost:8080/health",
   "logging": false
 }
 EOF
@@ -69,6 +70,7 @@ cat > "$fixture/config.json" <<'EOF'
 {
   "port": 9090,
   "timeout": 30,
+  "endpoint": "https://localhost:9090/ready",
   "logging": true,
   "health_path": "/health"
 }

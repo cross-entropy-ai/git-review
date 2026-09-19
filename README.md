@@ -8,11 +8,12 @@ A pull-request-style review experience, right in your terminal. Browse the whole
 
 [View the full-size demo](docs/demo.gif) · [Download the recording](docs/demo.cast)
 
-*Compare inline and split diffs, browse a file tree, resume viewed progress, and switch between committed and local changes.*
+*Spot character-level changes in inline and split diffs, browse a file tree, resume viewed progress, and switch between committed and local changes.*
 
 ## Make your next review easier
 
 - **See the whole change.** Get branch-wide and per-file additions and deletions, then jump straight to the code that matters.
+- **Spot the exact edit.** Deeper red and green backgrounds highlight changed characters within modified lines, in both inline and split views. Syntax colors stay visible in light and dark themes.
 - **Make progress you can see.** Mark a file viewed to fold it and move on. Come back later and pick up the same review where you left off.
 - **Find your way through large diffs.** Switch between a file list and a directory tree, find files with fuzzy search, search diff text, and collapse files you've already read.
 - **Review before you commit.** `git review -w` includes staged edits, unstaged edits, and new files Git hasn't tracked yet.
@@ -76,7 +77,7 @@ cd git-review
 just install
 ```
 
-This installs to `~/.local/bin`. Run `just demo` from the checkout for a ready-made sample review.
+This installs to `~/.local/bin`. Run `just demo` from the checkout for a ready-made sample review. Open `config.json` to see character-level highlights for numbers, strings, and multiple edits on one line; press `s` to compare layouts.
 
 ## Choose what to review
 

@@ -91,11 +91,6 @@ func (m *Model) renderSplitCell(row row, index int, newSide bool, width int) str
 	}
 	file := m.comparison.Files[row.file]
 	line := file.Hunks[row.hunk].Lines[index]
-	key := highlightKey{file: row.file, hunk: row.hunk}
-	if _, ok := m.highlights[key]; !ok {
-		file.Hunks = file.Hunks[row.hunk : row.hunk+1]
-		m.highlights[key] = highlightFile(file, m.color, m.palette.syntaxStyle)[0]
-	}
 	number := line.Old
 	if newSide {
 		number = line.New
@@ -122,6 +117,6 @@ func (m *Model) renderSplitCell(row row, index int, newSide bool, width int) str
 	marker, bg = m.commentLineStyle(row.file, row.hunk, index, side, marker, bg)
 	gutter := m.ink(fg, fmt.Sprintf("%4s %c %s ", lineNumber, line.Kind, marker))
 	available := max(0, width-ansi.StringWidth(gutter))
-	code := ansi.Cut(m.highlightSearch(m.highlights[key][index], row.file, row.hunk, index), m.xOffset, m.xOffset+available)
+	code := ansi.Cut(m.highlightSearch(m.highlightedHunk(row.file, row.hunk)[index], row.file, row.hunk, index), m.xOffset, m.xOffset+available)
 	return m.surfaceWithBackground(m.palette.foreground, bg, gutter+fit(code, available), width)
 }
