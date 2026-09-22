@@ -207,13 +207,27 @@ func Export(path, markdown string) error {
 	if err != nil {
 		return err
 	}
+	return writeExport(f, markdown)
+}
+
+// ExportDirectory creates a uniquely named report. An empty directory uses the
+// OS temporary directory; the report remains available after the editor closes.
+func ExportDirectory(dir, markdown string) (string, error) {
+	f, err := os.CreateTemp(dir, "review-comments-*.md")
+	if err != nil {
+		return "", err
+	}
+	return f.Name(), writeExport(f, markdown)
+}
+
+func writeExport(f *os.File, markdown string) error {
 	if _, err := f.WriteString(markdown); err != nil {
 		f.Close()
-		os.Remove(path)
+		os.Remove(f.Name())
 		return err
 	}
 	if err := f.Close(); err != nil {
-		os.Remove(path)
+		os.Remove(f.Name())
 		return err
 	}
 	return nil

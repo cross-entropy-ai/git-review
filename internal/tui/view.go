@@ -448,7 +448,7 @@ func (m *Model) helpLines() []string {
 		"  Enter            Insert a newline in the comment editor",
 		"  C                Open comments; Enter edits, d confirms deletion",
 		"  g (in comments)  Jump to the selected comment's source line",
-		"  x                Export this comparison's comments as Markdown",
+		"  x                Export comments as Markdown and open in the editor",
 		"  ● / ▸            Commented line / selected line",
 		"  a (in comments)  Reply to a GitHub comment's discussion",
 		"  r (in comments)  Resolve / unresolve; keeps comments and replies",

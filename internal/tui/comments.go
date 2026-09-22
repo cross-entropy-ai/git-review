@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -462,29 +461,55 @@ func (m *Model) openExport() {
 		m.commentReturn = "list"
 	}
 	m.commentModal, m.dragging = "export", ""
-	m.noteInput = []rune("review-comments-" + time.Now().Format("20060102-150405") + ".md")
-	m.noteCursor = len(m.noteInput)
+	m.noteInput, m.noteCursor = nil, 0
 }
 
-func (m *Model) exportComments() {
+type exportEditorFinishedMsg struct {
+	path string
+	err  error
+}
+
+func (m *Model) exportComments() tea.Cmd {
 	path := strings.TrimSpace(string(m.noteInput))
+	markdown := review.Markdown(m.snapshot.Label, m.snapshot.URL, m.comparison, m.notes.items)
+	var err error
 	if path == "" {
-		m.showAlert("Cannot export comments", "Enter a Markdown file path.")
-		return
-	}
-	if !filepath.IsAbs(path) && m.comparison.Root != "" {
-		path = filepath.Join(m.comparison.Root, path)
-	}
-	path, err := filepath.Abs(path)
-	if err == nil {
-		err = review.Export(path, review.Markdown(m.snapshot.Label, m.snapshot.URL, m.comparison, m.notes.items))
+		path, err = review.ExportDirectory("", markdown)
+	} else {
+		if !filepath.IsAbs(path) && m.comparison.Root != "" {
+			path = filepath.Join(m.comparison.Root, path)
+		}
+		path, err = filepath.Abs(path)
+		if err == nil {
+			if info, statErr := os.Stat(path); statErr == nil && info.IsDir() {
+				path, err = review.ExportDirectory(path, markdown)
+			} else {
+				err = review.Export(path, markdown)
+			}
+		}
 	}
 	if err != nil {
 		m.showAlert("Cannot export comments", err.Error()+"\nChoose a new filename or an existing parent directory.")
-		return
+		return nil
 	}
 	m.commentModal = m.commentReturn
 	m.message = "Exported Markdown: " + safeText(path)
+	command, err := fileEditorCommand(m.ctx, m.comparison.Root, path)
+	if err != nil {
+		m.finishExportEditor(exportEditorFinishedMsg{path: path, err: err})
+		return nil
+	}
+	return tea.ExecProcess(command, func(err error) tea.Msg {
+		return exportEditorFinishedMsg{path: path, err: err}
+	})
+}
+
+func (m *Model) finishExportEditor(msg exportEditorFinishedMsg) {
+	if msg.err != nil {
+		m.showAlert("Cannot open exported Markdown", "Exported Markdown: "+msg.path+"\n"+msg.err.Error())
+	} else {
+		m.message = "Exported Markdown: " + safeText(msg.path)
+	}
 }
 
 func (m *Model) commentKey(msg tea.KeyMsg) tea.Cmd {
@@ -508,8 +533,7 @@ func (m *Model) commentKey(msg tea.KeyMsg) tea.Cmd {
 			return m.saveComment()
 		}
 		if m.commentModal == "export" && key == "enter" {
-			m.exportComments()
-			return nil
+			return m.exportComments()
 		}
 		m.editNoteInput(msg, m.commentModal == "edit")
 	case "delete":

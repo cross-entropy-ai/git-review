@@ -45,6 +45,16 @@ func editorCommand(ctx context.Context, root, path string) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
+	return fileEditorCommand(ctx, root, filename)
+}
+
+// fileEditorCommand also opens exported reports outside a local working tree.
+// Keep root as the working directory so repository editor settings still apply.
+func fileEditorCommand(ctx context.Context, root, path string) (*exec.Cmd, error) {
+	filename, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
 	info, err := os.Stat(filename)
 	if err != nil {
 		return nil, err

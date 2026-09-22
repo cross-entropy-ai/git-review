@@ -67,6 +67,19 @@ func TestEditorSettingsAndLiteralFilePath(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(root, "injected")); !os.IsNotExist(err) {
 				t.Fatal("file path was interpreted as shell code")
 			}
+			// Exported reports live outside the checkout but use the same editor.
+			report := filepath.Join(t.TempDir(), path)
+			if err := os.WriteFile(report, []byte("report"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cmd, err = fileEditorCommand(context.Background(), root, report)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err = cmd.Output()
+			if err != nil || string(out) != "chosen editor\n"+report+"\n" {
+				t.Fatalf("export editor arguments: %q, %v", out, err)
+			}
 		})
 	}
 }

@@ -20,6 +20,7 @@ func notePaste(m *Model, s string) {
 func noteSave(m *Model) { m.Update(tea.KeyMsg{Type: tea.KeyCtrlS}) }
 
 func TestLineCommentsCreateEditDeleteAndExport(t *testing.T) {
+	t.Setenv("GIT_EDITOR", "true")
 	m := sampleModel(false)
 	defer m.Close()
 	m.comparison.Root = t.TempDir()
@@ -63,6 +64,109 @@ func TestLineCommentsCreateEditDeleteAndExport(t *testing.T) {
 	press(m, "enter")
 	if len(m.notes.items) != 0 || m.commentModal != "list" {
 		t.Fatal("confirmed deletion did not remove the note")
+	}
+}
+
+func TestExportDestinationsAndEditor(t *testing.T) {
+	for _, destination := range []string{"temporary", "remote temporary", "directory", "relative directory", "filename"} {
+		t.Run(destination, func(t *testing.T) {
+			t.Setenv("GIT_EDITOR", "true")
+			temp := t.TempDir()
+			t.Setenv("TMPDIR", temp)
+			m := sampleModel(false)
+			t.Cleanup(m.Close)
+			m.comparison.Root = t.TempDir()
+			m.notes.items = []review.Comment{{Path: "file.go", Body: "Export this note"}}
+			m.commentModal = "list"
+			m.openExport()
+			if len(m.noteInput) != 0 {
+				t.Fatal("default export should use the temporary directory")
+			}
+			wantDir := temp
+			switch destination {
+			case "remote temporary":
+				m.comparison.Root = ""
+			case "directory":
+				wantDir = t.TempDir()
+				m.noteInput = []rune(wantDir)
+			case "relative directory":
+				wantDir = filepath.Join(m.comparison.Root, "reports")
+				if err := os.Mkdir(wantDir, 0700); err != nil {
+					t.Fatal(err)
+				}
+				m.noteInput = []rune("reports")
+			case "filename":
+				wantDir = m.comparison.Root
+				m.noteInput = []rune("notes.md")
+			}
+			_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			if cmd == nil || m.hasAlert() || m.commentModal != "list" {
+				t.Fatalf("export did not launch editor and restore list: %s", m.message)
+			}
+			path := strings.TrimPrefix(m.message, "Exported Markdown: ")
+			if filepath.Dir(path) != wantDir || filepath.Ext(path) != ".md" {
+				t.Fatalf("unexpected export path: %s", path)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || !strings.Contains(string(data), "Export this note") {
+				t.Fatalf("export contents: %s, %v", data, err)
+			}
+			m.Update(exportEditorFinishedMsg{path: path})
+			if !strings.Contains(m.message, path) || strings.Contains(m.message, "press r") {
+				t.Fatalf("missing export completion path: %s", m.message)
+			}
+			m.Update(exportEditorFinishedMsg{path: path, err: errors.New("editor failed")})
+			if !m.hasAlert() || !strings.Contains(m.message, path) {
+				t.Fatalf("editor failure lost export location: %s", m.message)
+			}
+			if _, err := os.Stat(path); err != nil {
+				t.Fatalf("editor completion removed report: %v", err)
+			}
+		})
+	}
+}
+
+func TestExportFailureKeepsDestination(t *testing.T) {
+	t.Setenv("GIT_EDITOR", "true")
+	m := sampleModel(false)
+	t.Cleanup(m.Close)
+	m.comparison.Root = t.TempDir()
+	m.notes.items = []review.Comment{{Path: "file.go", Body: "Note"}}
+	path := filepath.Join(m.comparison.Root, "existing.md")
+	if err := os.WriteFile(path, []byte("keep me"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range []string{"existing.md", "missing/notes.md"} {
+		m.openExport()
+		m.noteInput = []rune(input)
+		if cmd := m.exportComments(); cmd != nil || !m.hasAlert() || m.commentModal != "export" || string(m.noteInput) != input {
+			t.Fatalf("failed export launched editor or lost destination: %s", m.message)
+		}
+		press(m, "enter") // Acknowledge the error.
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != "keep me" {
+		t.Fatalf("existing file changed: %s, %v", data, err)
+	}
+}
+
+func TestExportSurvivesEditorResolutionFailure(t *testing.T) {
+	t.Setenv("GIT_EDITOR", "")
+	dir := t.TempDir()
+	t.Setenv("TMPDIR", dir)
+	m := sampleModel(false)
+	t.Cleanup(m.Close)
+	m.notes.items = []review.Comment{{Path: "file.go", Body: "Saved report"}}
+	m.openExport()
+	if cmd := m.exportComments(); cmd != nil || !m.hasAlert() || m.commentModal != "" {
+		t.Fatalf("expected an editor error after successful export: %s", m.message)
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "*.md"))
+	if err != nil || len(files) != 1 {
+		t.Fatalf("missing saved report: %v, %v", files, err)
+	}
+	if !strings.Contains(m.message, files[0]) {
+		t.Fatalf("error must include saved report path: %s", m.message)
 	}
 }
 

@@ -174,6 +174,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.message = "Editor closed; press r to refresh the comparison"
 		}
+	case exportEditorFinishedMsg:
+		m.finishExportEditor(msg)
 	case viewedMsg:
 		if msg.key != m.snapshot.Key {
 			return m, nil

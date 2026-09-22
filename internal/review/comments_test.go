@@ -83,3 +83,30 @@ func TestMarkdownExportPreservesNotesAndExistingFiles(t *testing.T) {
 		t.Fatal("report was truncated")
 	}
 }
+
+func TestExportDirectoryUniqueReports(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TMPDIR", dir)
+	seen := make(map[string]bool)
+	for _, destination := range []string{"", dir, dir} {
+		path, err := ExportDirectory(destination, "# Report\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if seen[path] || filepath.Dir(path) != dir || filepath.Ext(path) != ".md" {
+			t.Fatalf("unexpected report path: %s", path)
+		}
+		seen[path] = true
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != "# Report\n" {
+			t.Fatalf("report contents: %q, %v", data, err)
+		}
+		info, err := os.Stat(path)
+		if err != nil || info.Mode().Perm() != 0600 {
+			t.Fatalf("report should only be accessible by its owner: %v, %v", info, err)
+		}
+	}
+	if _, err := ExportDirectory(filepath.Join(dir, "missing"), "report"); err == nil {
+		t.Fatal("accepted missing directory")
+	}
+}

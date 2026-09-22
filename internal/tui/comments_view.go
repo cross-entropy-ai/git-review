@@ -112,7 +112,7 @@ func (m *Model) commentFooter() []control {
 		}
 		return []control{{label: " Ctrl+S Save ", key: "ctrl+s"}, {label: " Esc Cancel ", key: "esc"}}
 	case "export":
-		return []control{{label: " Enter Export ", key: "enter"}, {label: " Esc Cancel ", key: "esc"}}
+		return []control{{label: " Enter Export & open ", key: "enter"}, {label: " Esc Cancel ", key: "esc"}}
 	case "delete":
 		return []control{{label: " Enter Delete ", key: "enter"}, {label: " Esc Keep ", key: "esc"}}
 	default:
@@ -183,7 +183,7 @@ func (m *Model) overlayComments(screen []string) []string {
 		lines = append(lines, m.ink(m.palette.modal.muted, fmt.Sprintf(" Enter newline · %d characters", len(m.noteInput))))
 	case "export":
 		title = "Export Markdown"
-		lines = append(lines, fmt.Sprintf(" %d comments · paths, line ranges and code", len(m.notes.items)), "")
+		lines = append(lines, fmt.Sprintf(" %d comments · opens in your default editor", len(m.notes.items)), " Directory or filename (blank = temporary directory):")
 		text := safeText(string(m.noteInput[:m.noteCursor])) + "▏" + safeText(string(m.noteInput[m.noteCursor:]))
 		cursor := ansi.StringWidth(safeText(string(m.noteInput[:m.noteCursor])))
 		start := max(0, cursor-width+5)
@@ -192,7 +192,7 @@ func (m *Model) overlayComments(screen []string) []string {
 		if m.comparison.Root != "" {
 			base = m.comparison.Root
 		}
-		lines = append(lines, m.ink(m.palette.modal.muted, " Relative to: "+safeText(base)), m.ink(m.palette.modal.muted, " Existing files are kept; choose a new filename."))
+		lines = append(lines, m.ink(m.palette.modal.muted, " Relative to: "+safeText(base)), m.ink(m.palette.modal.muted, " Directories get a unique .md file; existing files are kept."))
 	case "delete":
 		title = "Delete comment?"
 		c := m.notes.items[m.commentIndex]
