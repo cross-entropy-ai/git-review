@@ -17,17 +17,25 @@ func markedText(text string, spans []textSpan) []string {
 	return result
 }
 
-func TestIntralineCharacters(t *testing.T) {
+func TestIntralineWords(t *testing.T) {
 	for _, tc := range []struct {
 		name, old, added string
 		wantOld, wantNew []string
 	}{
-		{"number", "timeout = 10", "timeout = 30", []string{"1"}, []string{"3"}},
+		{"number", "timeout = 10", "timeout = 30", []string{"10"}, []string{"30"}},
 		{"multiple edits", `connect("dev", 1234)`, `connect("PROD", 5678)`, []string{"dev", "1234"}, []string{"PROD", "5678"}},
-		{"insertion", "call(value)", "call(new_value)", nil, []string{"new_"}},
-		{"deletion", "call(old_value)", "call(value)", []string{"old_"}, nil},
-		{"unicode", "名称 = \"你好👍🏻\"", "名称 = \"您好👍🏽\"", []string{"你", "👍🏻"}, []string{"您", "👍🏽"}},
-		{"combining mark", "label = cafe\u0301", "label = cafe\u0300", []string{"e\u0301"}, []string{"e\u0300"}},
+		{"identifier prefix insertion", "call(value)", "call(new_value)", []string{"value"}, []string{"new_value"}},
+		{"identifier prefix deletion", "call(old_value)", "call(value)", []string{"old_value"}, []string{"value"}},
+		{"camel case", "call(userName)", "call(userNames)", []string{"userName"}, []string{"userNames"}},
+		{"shared letters", `mode = "development"`, `mode = "deployment"`, []string{"development"}, []string{"deployment"}},
+		{"whole word insertion", "return value", "return new value", nil, []string{"new "}},
+		{"whole word deletion", "return old value", "return value", []string{"old "}, nil},
+		{"punctuation", "call(a, b)", "call(a; b)", []string{","}, []string{";"}},
+		{"whitespace", "value = 10", "value  = 10", nil, []string{" "}},
+		{"unicode", "名称 = \"你好👍🏻\"", "名称 = \"您好👍🏽\"", []string{"你好👍🏻"}, []string{"您好👍🏽"}},
+		{"unicode identifier", "call(用户名)", "call(用户名称)", []string{"用户名"}, []string{"用户名称"}},
+		{"combining mark", "label = cafe\u0301", "label = cafe\u0300", []string{"cafe\u0301"}, []string{"cafe\u0300"}},
+		{"emoji cluster", "face = 👍🏻", "face = 👍🏽", []string{"👍🏻"}, []string{"👍🏽"}},
 		{"tab and control", "\tvalue = '\x1b'", "\tvalue = 'x'", []string{"\\u001b"}, []string{"x"}},
 		{"identical", "no change", "no change", nil, nil},
 		{"unrelated", "abcdef", "uvwxyz", nil, nil},
@@ -58,7 +66,7 @@ func TestIntralineAlignsReplacementBlocks(t *testing.T) {
 		{Kind: '+', Text: "timeout = 60"},
 	}
 	spans := intralineSpans(lines)
-	for i, want := range map[int][]string{0: {"1"}, 1: {"3"}, 4: {"3"}, 5: {"5"}} {
+	for i, want := range map[int][]string{0: {"10"}, 1: {"3"}, 4: {"30"}, 5: {"5"}} {
 		if got := markedText(lines[i].Text, spans[i]); !reflect.DeepEqual(got, want) {
 			t.Errorf("line %d: marked %q, want %q", i, got, want)
 		}
@@ -72,7 +80,7 @@ func TestIntralineAlignsReplacementBlocks(t *testing.T) {
 
 func TestIntralineWorkIsBounded(t *testing.T) {
 	budget := 1000
-	if got := compareLineText(strings.Repeat("a", 200), strings.Repeat("b", 200), &budget); got.score != 0 {
+	if got := compareLineText(strings.Repeat("a ", 100), strings.Repeat("b ", 100), &budget); got.score != 0 {
 		t.Fatal("expensive comparison did not fall back to row colors")
 	}
 	budget = 1
@@ -127,13 +135,13 @@ func TestIntralineRendering(t *testing.T) {
 			m.palette = paletteFor(theme)
 			m.comparison.Files[0].Path = "config.txt"
 			m.comparison.Files[0].Hunks[0].Lines = []diff.Line{
-				{Kind: '-', Text: "prefix old suffix", Old: 1},
-				{Kind: '+', Text: "prefix NEW suffix", New: 1},
+				{Kind: '-', Text: "prefix oldValue suffix", Old: 1},
+				{Kind: '+', Text: "prefix NEWValue suffix", New: 1},
 			}
 			for _, split := range []bool{false, true} {
 				for _, offset := range []int{0, 8} {
 					m.xOffset = offset
-					for index, token := range []string{"old", "NEW"} {
+					for index, token := range []string{"oldValue", "NEWValue"} {
 						r := row{kind: 'l', file: 0, hunk: 0, line: index}
 						var rendered string
 						if split {
@@ -159,6 +167,9 @@ func TestIntralineRendering(t *testing.T) {
 						}
 						if got := backgroundAt(t, rendered, token); got != inlineBG {
 							t.Errorf("%s split=%v offset=%d: changed text background = %s, want %s", theme, split, offset, got, inlineBG)
+						}
+						if got := backgroundAt(t, rendered, "Value"); got != inlineBG {
+							t.Errorf("unchanged identifier suffix should share the word highlight: %s", got)
 						}
 						if got := backgroundAt(t, rendered, " suffix"); got != rowBG {
 							t.Errorf("highlight leaked into suffix: %s", got)

@@ -2,6 +2,8 @@ package tui
 
 import (
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/cross-entropy-ai/git-review/internal/diff"
@@ -15,7 +17,7 @@ type lineEdits struct {
 	old, new []textSpan
 }
 
-// Bound both line alignment and character comparisons so generated patches do
+// Bound both line alignment and word comparisons so generated patches do
 // not stall the UI. Comparisons beyond the limit keep their ordinary row backgrounds.
 const inlineWorkLimit = 2_000_000
 
@@ -72,12 +74,30 @@ func intralineSpans(lines []diff.Line) [][]textSpan {
 	return result
 }
 
-func textClusters(text string) []string {
+// Keep identifiers and numbers whole, including Unicode letters and combining
+// marks. Punctuation and whitespace remain separate tokens so an unchanged
+// delimiter does not get highlighted along with a neighboring word.
+func textWords(text string) []string {
 	var parts []string
+	var word strings.Builder
+	flush := func() {
+		if word.Len() > 0 {
+			parts = append(parts, word.String())
+			word.Reset()
+		}
+	}
 	g := uniseg.NewGraphemes(safeText(text))
 	for g.Next() {
-		parts = append(parts, g.Str())
+		part := g.Str()
+		r, _ := utf8.DecodeRuneInString(part)
+		if r == '_' || unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsMark(r) {
+			word.WriteString(part)
+		} else {
+			flush()
+			parts = append(parts, part)
+		}
 	}
+	flush()
 	return parts
 }
 
@@ -87,7 +107,7 @@ func compareLineText(old, added string, budget *int) lineEdits {
 		return lineEdits{}
 	}
 	*budget -= len(old) + len(added)
-	a, b := textClusters(old), textClusters(added)
+	a, b := textWords(old), textWords(added)
 	if len(a) == 0 || len(b) == 0 {
 		return lineEdits{}
 	}
