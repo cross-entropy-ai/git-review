@@ -23,7 +23,11 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	g := m.layout()
 	if msg.Action == tea.MouseActionMotion {
 		if m.dragging != "" && msg.Button == tea.MouseButtonLeft {
-			m.dragScroll(msg.Y)
+			if m.dragging == "resize" {
+				m.sideWidth = m.clampSidebarWidth(msg.X)
+			} else {
+				m.dragScroll(msg.Y)
+			}
 		}
 		return nil
 	}
@@ -76,6 +80,10 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 			m.lineSelecting, m.rangeSelecting = false, false
 		}
 		return m.activate(button.key)
+	}
+	if g.sideWidth > 0 && msg.X == g.sideWidth && msg.Y >= contentTop-1 && msg.Y <= contentTop+g.bodyHeight {
+		m.dragging = "resize"
+		return nil
 	}
 	if msg.Y == contentTop-1 {
 		m.lineSelecting, m.rangeSelecting = false, false

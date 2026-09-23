@@ -58,6 +58,7 @@ type Model struct {
 	offset       int
 	xOffset      int
 	sideOffset   int
+	sideWidth    int // Preferred width; zero uses the automatic layout.
 	treeMode     bool
 	splitMode    bool
 	treeRows     []treeEntry
@@ -149,6 +150,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
+		m.dragging = ""
 		m.clampPicker()
 		m.helpOffset = min(m.helpOffset, max(0, len(m.helpContent())-m.helpCapacity()))
 		m.clampAlert()

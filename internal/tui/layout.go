@@ -7,6 +7,8 @@ const (
 	viewedButtonWidth = 12
 	fileFrameInset    = 1
 	rightInset        = 1
+	minSidebarWidth   = 24
+	minDiffWidth      = 45
 )
 
 // Geometry is shared by rendering and mouse hit testing, including narrow views.
@@ -21,10 +23,18 @@ func (m *Model) layout() geometry {
 	g := geometry{bodyHeight: m.bodyHeight()}
 	if m.width >= 90 {
 		g.sideWidth = min(38, m.width/3)
+		if m.sideWidth > 0 {
+			g.sideWidth = m.clampSidebarWidth(m.sideWidth)
+		}
 		g.diffX = g.sideWidth + 1
 	}
 	g.diffWidth = m.width - g.diffX - 2
 	return g
+}
+
+func (m *Model) clampSidebarWidth(width int) int {
+	// Leave one column for the divider and two for the diff frame.
+	return max(minSidebarWidth, min(width, m.width-minDiffWidth-3))
 }
 
 type control struct {

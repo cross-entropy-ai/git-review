@@ -79,7 +79,14 @@ func (m *Model) View() string {
 		rail := m.scrollRail(y, g.bodyHeight, len(m.rows), m.offset, !m.fileFocus)
 		line := m.surface(m.palette.border, "│", 1) + content + rail
 		if g.sideWidth > 0 {
-			line = side[y] + m.surface(m.palette.foreground, " ", 1) + line
+			handle, color := " ", m.palette.muted
+			if y == g.bodyHeight/2 {
+				handle = "⋮"
+			}
+			if m.dragging == "resize" {
+				handle, color = "│", m.palette.accent
+			}
+			line = side[y] + m.surface(color, handle, 1) + line
 		}
 		out = append(out, line)
 	}
@@ -460,6 +467,7 @@ func (m *Model) helpLines() []string {
 		"  h / l · ← / →    Close / open directory; left goes to parent",
 		"  Space / Enter    Toggle directory or file folding",
 		"  Click directory  Expand / collapse its file tree",
+		"  Drag divider ⋮   Resize the sidebar",
 		"  n / p            Next / previous file, or match when search is active",
 		"",
 		"  Viewed progress is saved locally for this exact comparison.",

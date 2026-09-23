@@ -1,6 +1,6 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
-version := "1.8.0"
+version := "1.9.0"
 agg := env_var_or_default("AGG", "agg")
 
 # Show available development commands.

@@ -187,3 +187,72 @@ func TestMouseWheelNavigatesDiffThatFits(t *testing.T) {
 		t.Fatal("wheel did not select the previous file in a fully visible diff")
 	}
 }
+
+func TestMouseSidebarDragResize(t *testing.T) {
+	for _, tree := range []bool{false, true} {
+		for _, split := range []bool{false, true} {
+			t.Run(fmt.Sprintf("tree=%t/split=%t", tree, split), func(t *testing.T) {
+				m := sampleModel(true)
+				if tree {
+					press(m, "t")
+				}
+				if split {
+					press(m, "s")
+				}
+				g := m.layout()
+				y := contentTop + g.bodyHeight/2
+				line := strings.Split(m.View(), "\n")[y]
+				if ansi.Cut(ansi.Strip(line), g.sideWidth, g.sideWidth+1) != "⋮" {
+					t.Fatal("resize handle is not rendered at its hit region")
+				}
+				selected, offset, sideOffset, focus := m.selected, m.offset, m.sideOffset, m.fileFocus
+				m.Update(tea.MouseMsg{X: g.sideWidth, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+				m.Update(tea.MouseMsg{X: 48, Y: 0, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+				if m.layout().sideWidth != 48 || m.layout().diffX != 49 {
+					t.Fatal("drag did not resize both panes")
+				}
+				if m.selected != selected || m.offset != offset || m.sideOffset != sideOffset || m.fileFocus != focus {
+					t.Fatal("resizing changed selection, scroll position, or focus")
+				}
+				for _, x := range []int{-10, 200, 48} {
+					m.Update(tea.MouseMsg{X: x, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+					g = m.layout()
+					if g.sideWidth < minSidebarWidth || g.diffWidth < minDiffWidth {
+						t.Fatalf("drag exceeded pane limits: %+v", g)
+					}
+					for _, line := range strings.Split(m.View(), "\n") {
+						if ansi.StringWidth(line) != m.width {
+							t.Fatal("resized rendering does not fit the terminal")
+						}
+					}
+				}
+				m.Update(tea.MouseMsg{X: 48, Y: y, Action: tea.MouseActionRelease})
+				m.Update(tea.MouseMsg{X: 30, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+				if m.dragging != "" || m.layout().sideWidth != 48 {
+					t.Fatal("release did not stop resizing")
+				}
+				clickText(t, m, "Viewed")
+				if !m.viewed["main.go"] {
+					t.Fatal("resizing misaligned the diff's viewed button")
+				}
+			})
+		}
+	}
+}
+
+func TestSidebarWidthSurvivesTerminalResize(t *testing.T) {
+	m := sampleModel(false)
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 30})
+	m.Update(tea.MouseMsg{X: m.layout().sideWidth, Y: contentTop, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m.Update(tea.MouseMsg{X: 80, Y: contentTop, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	for _, size := range []struct{ terminal, sidebar int }{{90, 42}, {60, 0}, {160, 80}} {
+		m.Update(tea.WindowSizeMsg{Width: size.terminal, Height: 30})
+		if m.layout().sideWidth != size.sidebar || m.dragging != "" {
+			t.Fatalf("terminal width %d: sidebar=%d, dragging=%q", size.terminal, m.layout().sideWidth, m.dragging)
+		}
+	}
+	m.install(m.snapshot)
+	if m.layout().sideWidth != 80 {
+		t.Fatal("refresh lost the chosen sidebar width")
+	}
+}

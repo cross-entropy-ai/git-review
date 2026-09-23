@@ -157,7 +157,7 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 | `r` | Refresh the review |
 | `?` / `q` | Floating help / quit |
 
-Prefer the mouse? Click a file to jump to it, click its checkbox to mark it viewed, and scroll either pane. In the tree, click a directory to expand or collapse it.
+Prefer the mouse? Click a file to jump to it, click its checkbox to mark it viewed, and scroll either pane. Drag the divider marked `⋮` between the sidebar and diff to resize the sidebar; your chosen width is retained for the session. In the tree, click a directory to expand or collapse it.
 
 Press `f` for an embedded fzf-style file finder; no external `fzf` installation is needed. Type parts of a filename or path to narrow the list, including rename source paths. Use arrows, Tab/Shift+Tab, or Ctrl+N/P to select, Enter to open, and Esc to cancel. Choosing a file keeps the full review list intact.
 
