@@ -197,3 +197,45 @@ func TestWorkingTreeLinkedWorktreeAndInvalidRefs(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkingTreeBinaryAttributesAndIdentity(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, ".gitattributes", "*.dat binary\n")
+	write(t, dir, "modified.dat", "before\n")
+	write(t, dir, "deleted.dat", "deleted\n")
+	commit(t, dir)
+	write(t, dir, "modified.dat", "after\n")
+	write(t, dir, "added.dat", "added\n")
+	if err := os.Remove(filepath.Join(dir, "deleted.dat")); err != nil {
+		t.Fatal(err)
+	}
+	before := gitDirectoryContents(t, filepath.Join(dir, ".git"))
+	load := func() *Comparison {
+		t.Helper()
+		c, err := Load(context.Background(), Options{Dir: dir, Mode: ModeWorkingTree, Context: 3})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	first := load()
+	if len(first.Files) != 3 {
+		t.Fatalf("unexpected binary changes: %+v", first.Files)
+	}
+	statuses := map[string]string{"added.dat": "A", "modified.dat": "M", "deleted.dat": "D"}
+	for _, file := range first.Files {
+		if !file.Binary || len(file.Hunks) != 0 || file.Added != 0 || file.Deleted != 0 || file.Status != statuses[file.Path] {
+			t.Fatalf("binary attributes were not respected: %+v", file)
+		}
+	}
+	if second := load(); second.HeadOID != first.HeadOID {
+		t.Fatal("unchanged binary content changed snapshot identity")
+	}
+	write(t, dir, "modified.dat", "other\n")
+	if changed := load(); changed.HeadOID == first.HeadOID {
+		t.Fatal("changed binary content reused snapshot identity")
+	}
+	if !reflect.DeepEqual(before, gitDirectoryContents(t, filepath.Join(dir, ".git"))) {
+		t.Fatal("binary review modified Git metadata")
+	}
+}

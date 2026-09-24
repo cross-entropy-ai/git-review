@@ -112,6 +112,9 @@ func snapshotOverrides(ctx context.Context, root, tempDir string) ([]string, err
 		"-c", "index.sparse=false",
 		"-c", "gc.auto=0",
 		"-c", "maintenance.auto=false",
+		// These objects only live for this review. Avoid recompressing large
+		// binary files and archives before Git can report their metadata.
+		"-c", "core.compression=0",
 	}
 	keys, err := run(ctx, root, "config", "--null", "--name-only", "--list")
 	if err != nil {
