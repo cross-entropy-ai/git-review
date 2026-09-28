@@ -54,6 +54,7 @@ func TestMouseSidebarSelectFoldAndViewed(t *testing.T) {
 
 func TestMouseFileCardAndToolbar(t *testing.T) {
 	m := sampleModel(true)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	clickText(t, m, "f Files")
 	if !m.picking {
 		t.Fatal("file finder did not open")

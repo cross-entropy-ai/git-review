@@ -59,6 +59,9 @@ func (m *Model) View() string {
 	if m.splitMode {
 		diffTitle = " DIFF · SPLIT (old │ new) "
 	}
+	if m.wrapLines {
+		diffTitle += "· WRAP "
+	}
 	if len(m.visible) > 0 {
 		diffTitle += "· " + safeText(c.Files[m.selected].Path) + " "
 	}
@@ -358,6 +361,10 @@ func (m *Model) renderRowContent(row row, width int) string {
 		if line.New > 0 {
 			newNumber = fmt.Sprint(line.New)
 		}
+		if row.continued {
+			oldNumber = strings.Repeat(" ", len(oldNumber))
+			newNumber = strings.Repeat(" ", len(newNumber))
+		}
 		signColor := m.palette.muted
 		bg := ""
 		if line.Kind == '+' {
@@ -387,7 +394,7 @@ func (m *Model) renderRowContent(row row, width int) string {
 		marker, bg = m.commentLineStyle(row.file, row.hunk, row.line, side, marker, bg)
 		gutter := m.ink(signColor, fmt.Sprintf("%4s %4s %c %s ", oldNumber, newNumber, line.Kind, marker))
 		available := max(0, width-ansi.StringWidth(gutter))
-		code = ansi.Cut(code, m.xOffset, m.xOffset+available)
+		code = m.visibleCode(code, row.leftSpan, available)
 		return m.surfaceWithBackground(m.palette.foreground, bg, gutter+fit(code, available), width)
 	}
 	return m.surface(m.palette.foreground, "", width)
@@ -428,6 +435,7 @@ func (m *Model) helpLines() []string {
 		"  Tab              Switch focus between files and diff",
 		"  t                Toggle flat file list / directory tree",
 		"  s                Toggle inline / split diff (old left, new right)",
+		"  w                Toggle line wrapping",
 		"  j / k · ↑ / ↓    Scroll diff; at an edge, select adjacent file",
 		"  n / p            Next / previous file; search match when active",
 		"  Space / Enter    Fold / unfold the selected file",

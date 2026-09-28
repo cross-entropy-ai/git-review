@@ -17,6 +17,9 @@ type row struct {
 	line      int
 	rightLine int // Split row's new-side index; -1 denotes an empty cell.
 	text      string
+	continued bool
+	leftSpan  codeSpan
+	rightSpan codeSpan
 }
 
 type loadedMsg struct {
@@ -61,6 +64,7 @@ type Model struct {
 	sideWidth    int // Preferred width; zero uses the automatic layout.
 	treeMode     bool
 	splitMode    bool
+	wrapLines    bool
 	treeRows     []treeEntry
 	treeCursor   int
 	treeClosed   map[string]bool
@@ -150,6 +154,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
+		if m.wrapLines {
+			m.rebuildKeepingPosition()
+		}
 		m.dragging = ""
 		m.clampPicker()
 		m.helpOffset = min(m.helpOffset, max(0, len(m.helpContent())-m.helpCapacity()))
@@ -285,6 +292,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "s":
 			m.toggleSplit()
+		case "w":
+			m.toggleWrap()
 		case "f":
 			m.openPicker()
 		case "/":
@@ -338,13 +347,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.treeFocus() {
 				m.treeLeft()
 			} else {
-				m.xOffset = max(0, m.xOffset-8)
+				m.scrollHorizontal(-8)
 			}
 		case "l", "right":
 			if m.treeFocus() {
 				m.treeRight()
 			} else {
-				m.xOffset += 8
+				m.scrollHorizontal(8)
 			}
 		case "0":
 			m.xOffset = 0
@@ -478,6 +487,9 @@ func (m *Model) rebuild() {
 	}
 	if !found && len(m.visible) > 0 {
 		m.selected = m.visible[0]
+	}
+	if m.wrapLines {
+		m.rows = m.wrapRows(m.rows)
 	}
 	m.rebuildTree()
 	if m.lineSelecting {

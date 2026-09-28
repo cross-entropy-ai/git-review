@@ -127,11 +127,16 @@ func (m *Model) controls() []control {
 	if m.splitMode {
 		modeLabel = " s Inline "
 	}
+	wrapLabel := " w Wrap "
+	if m.wrapLines {
+		wrapLabel = " w Unwrap "
+	}
 	buttons := []control{
 		{label: " Tab Focus ", key: "tab"},
 		{label: " Space Fold ", key: " "},
 		{label: " t Tree/List ", key: "t"},
 		{label: modeLabel, key: "s"},
+		{label: wrapLabel, key: "w"},
 		{label: " e Edit ", key: "e"},
 		{label: " v Viewed ", key: "v"},
 		{label: " f Files ", key: "f"},

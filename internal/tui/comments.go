@@ -97,12 +97,21 @@ func (m *Model) lineAt(index int, side string) (lineRef, bool) {
 	if r.kind == 'd' {
 		if side == "" {
 			side = "new"
-			if r.rightLine < 0 {
+			if r.rightLine < 0 || (m.wrapLines && r.continued && r.rightSpan == (codeSpan{})) {
 				side = "old"
 			}
 		}
 		if side == "new" {
 			li = r.rightLine
+		}
+		if m.wrapLines && r.continued {
+			span := r.leftSpan
+			if side == "new" {
+				span = r.rightSpan
+			}
+			if span == (codeSpan{}) {
+				return lineRef{}, false
+			}
 		}
 	}
 	if li < 0 {
@@ -216,7 +225,7 @@ func (m *Model) moveCommentLine(delta int) {
 			if !ok && m.splitMode && !m.rangeSelecting {
 				ref, ok = m.lineAt(i, "")
 			}
-			if !ok {
+			if !ok || (ref.file == m.commentLine.file && ref.hunk == m.commentLine.hunk && ref.line == m.commentLine.line) {
 				continue
 			}
 			if m.rangeSelecting && (ref.file != m.rangeAnchor.file || ref.hunk != m.rangeAnchor.hunk) {
@@ -272,9 +281,11 @@ func (m *Model) selectionKey(msg tea.KeyMsg) {
 	case "x":
 		m.openExport()
 	case "h", "left":
-		m.xOffset = max(0, m.xOffset-8)
+		m.scrollHorizontal(-8)
 	case "l", "right":
-		m.xOffset += 8
+		m.scrollHorizontal(8)
+	case "w":
+		m.toggleWrap()
 	}
 }
 

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/cross-entropy-ai/git-review/internal/diff"
@@ -54,16 +55,21 @@ func splitRows(file, hunk int, lines []diff.Line) []row {
 }
 
 func (m *Model) toggleSplit() {
+	m.splitMode = !m.splitMode
+	m.dragging = ""
+	m.rebuildKeepingPosition()
+}
+
+func (m *Model) rebuildKeepingPosition() {
 	var anchor row
 	hasAnchor := m.offset < len(m.rows)
 	if hasAnchor {
 		anchor = m.rows[m.offset]
-		if anchor.kind == 'd' && anchor.line < 0 {
+		if anchor.kind == 'd' && (anchor.line < 0 || (anchor.continued && anchor.leftSpan == (codeSpan{}))) {
 			anchor.line = anchor.rightLine
+			anchor.leftSpan = anchor.rightSpan
 		}
 	}
-	m.splitMode = !m.splitMode
-	m.dragging = ""
 	m.rebuild()
 	if !hasAnchor {
 		return
@@ -79,14 +85,24 @@ func (m *Model) toggleSplit() {
 		}
 		if match {
 			m.offset = i
-			break
+			span, anchorSpan := candidate.leftSpan, anchor.leftSpan
+			if candidate.kind == 'd' && candidate.rightLine == anchor.line {
+				span = candidate.rightSpan
+			}
+			if !m.wrapLines || span.end == 0 || span.end > anchorSpan.start {
+				break
+			}
 		}
 	}
 	m.clampOffset()
 }
 
 func (m *Model) renderSplitCell(row row, index int, newSide bool, width int) string {
-	if index < 0 {
+	span := row.leftSpan
+	if newSide {
+		span = row.rightSpan
+	}
+	if index < 0 || (m.wrapLines && row.continued && span == (codeSpan{})) {
 		return m.surface(m.palette.foreground, "", width)
 	}
 	file := m.comparison.Files[row.file]
@@ -98,6 +114,9 @@ func (m *Model) renderSplitCell(row row, index int, newSide bool, width int) str
 	lineNumber := ""
 	if number > 0 {
 		lineNumber = fmt.Sprint(number)
+	}
+	if row.continued {
+		lineNumber = strings.Repeat(" ", len(lineNumber))
 	}
 	fg, bg := m.palette.muted, ""
 	switch line.Kind {
@@ -117,6 +136,6 @@ func (m *Model) renderSplitCell(row row, index int, newSide bool, width int) str
 	marker, bg = m.commentLineStyle(row.file, row.hunk, index, side, marker, bg)
 	gutter := m.ink(fg, fmt.Sprintf("%4s %c %s ", lineNumber, line.Kind, marker))
 	available := max(0, width-ansi.StringWidth(gutter))
-	code := ansi.Cut(m.highlightSearch(m.highlightedHunk(row.file, row.hunk)[index], row.file, row.hunk, index), m.xOffset, m.xOffset+available)
+	code := m.visibleCode(m.highlightSearch(m.highlightedHunk(row.file, row.hunk)[index], row.file, row.hunk, index), span, available)
 	return m.surfaceWithBackground(m.palette.foreground, bg, gutter+fit(code, available), width)
 }

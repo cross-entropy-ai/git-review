@@ -145,6 +145,7 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 | `z` | Toggle all files collapsed / expanded |
 | `t` | Toggle Tree/List |
 | `s` | Toggle inline / split diff (old on the left, new on the right) |
+| `w` | Toggle line wrapping in inline and split diffs (off by default) |
 | `e` | Open the selected local file in the default editor |
 | `v` | Mark viewed, fold, and move on |
 | `f` | Open the fuzzy file finder popup |

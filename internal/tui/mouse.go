@@ -25,6 +25,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		if m.dragging != "" && msg.Button == tea.MouseButtonLeft {
 			if m.dragging == "resize" {
 				m.sideWidth = m.clampSidebarWidth(msg.X)
+				if m.wrapLines {
+					m.rebuildKeepingPosition()
+				}
 			} else {
 				m.dragScroll(msg.Y)
 			}
@@ -45,7 +48,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 				m.clampSidebar()
 			} else if msg.X >= g.diffX {
 				if msg.Shift || msg.Button == tea.MouseButtonWheelLeft || msg.Button == tea.MouseButtonWheelRight {
-					m.xOffset = max(0, m.xOffset+delta*4)
+					m.scrollHorizontal(delta * 4)
 				} else {
 					if m.lineSelecting {
 						m.rangeSelecting = false

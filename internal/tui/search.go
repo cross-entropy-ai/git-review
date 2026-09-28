@@ -143,6 +143,15 @@ func (m *Model) jumpMatch() {
 	for i, r := range m.rows {
 		if r.file == match.file && r.hunk == match.hunk &&
 			((r.kind == 'l' && r.line == match.line) || (r.kind == 'd' && (r.line == match.line || r.rightLine == match.line))) {
+			if m.wrapLines {
+				span := r.leftSpan
+				if r.kind == 'd' && r.rightLine == match.line {
+					span = r.rightSpan
+				}
+				if match.start < span.start || match.start >= span.end {
+					continue
+				}
+			}
 			m.offset = max(0, i-m.bodyHeight()/2)
 			m.clampOffset()
 			break
@@ -153,7 +162,7 @@ func (m *Model) jumpMatch() {
 	if m.splitMode {
 		available = (contentWidth-1)/2 - 9
 	}
-	if match.start < m.xOffset || match.end > m.xOffset+max(1, available) {
+	if !m.wrapLines && (match.start < m.xOffset || match.end > m.xOffset+max(1, available)) {
 		m.xOffset = max(0, match.start-4)
 	}
 	m.ensureSelectedVisible()
