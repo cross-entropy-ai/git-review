@@ -14,6 +14,19 @@ import (
 
 type editorFinishedMsg struct{ err error }
 
+// SetMouseEnabled keeps editor recovery consistent with the program's mouse option.
+func (m *Model) SetMouseEnabled(enabled bool) { m.mouseEnabled = enabled }
+
+func (m *Model) restoreEditorMouse() tea.Cmd {
+	m.dragging = ""
+	// Bubble Tea releases mouse reporting for ExecProcess, but RestoreTerminal
+	// does not re-enable it. Restore the user's setting after either editor exits.
+	if m.mouseEnabled {
+		return tea.EnableMouseCellMotion
+	}
+	return tea.DisableMouse
+}
+
 func (m *Model) openEditor() tea.Cmd {
 	if len(m.visible) == 0 || m.treeDirectoryFocused() {
 		m.message = "Select a file to open in the editor"

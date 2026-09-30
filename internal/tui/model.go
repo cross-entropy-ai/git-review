@@ -62,6 +62,8 @@ type Model struct {
 	xOffset      int
 	sideOffset   int
 	sideWidth    int // Preferred width; zero uses the automatic layout.
+	sideHidden   bool
+	mouseEnabled bool
 	treeMode     bool
 	splitMode    bool
 	wrapLines    bool
@@ -114,6 +116,7 @@ func New(s *backend.Snapshot, source backend.Backend, color bool, theme Theme) *
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Model{source: source, ctx: ctx, cancel: cancel, color: color, palette: paletteFor(theme), width: 100, height: 30, treeClosed: make(map[string]bool), pending: make(map[string]pendingViewed)}
 	m.install(s)
+	m.mouseEnabled = true
 	return m
 }
 
@@ -154,6 +157,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
+		if m.layout().sideWidth == 0 {
+			m.fileFocus = false
+		}
 		if m.wrapLines {
 			m.rebuildKeepingPosition()
 		}
@@ -183,8 +189,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.message = "Editor closed; press r to refresh the comparison"
 		}
+		return m, m.restoreEditorMouse()
 	case exportEditorFinishedMsg:
 		m.finishExportEditor(msg)
+		return m, m.restoreEditorMouse()
 	case viewedMsg:
 		if msg.key != m.snapshot.Key {
 			return m, nil
@@ -281,14 +289,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.helpOffset = 0
 			m.dragging = ""
 		case "tab", "shift+tab":
-			m.fileFocus = !m.fileFocus
+			m.fileFocus = m.layout().sideWidth > 0 && !m.fileFocus
+		case "b":
+			m.toggleSidebar()
 		case "t":
 			m.treeMode = !m.treeMode
 			m.sideOffset, m.dragging = 0, ""
 			m.rebuildTree()
 			m.ensureSelectedVisible()
 			if m.layout().sideWidth == 0 {
-				m.message = "Sidebar view changed; resize to at least 90 columns to show it"
+				m.message = "Sidebar view changed; press b to show it at 90 columns or wider"
 			}
 		case "s":
 			m.toggleSplit()

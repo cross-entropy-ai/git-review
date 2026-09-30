@@ -54,7 +54,7 @@ Options:
 With --auto, base/head refs apply only when there are no local changes.
 PR targets cannot use local scope flags or --base/--head; GitHub fixes context.
 
-Keys: m review mode · Tab focus · t tree/list · j/k scroll · n/p file · Space fold · v viewed
+Keys: m review mode · Tab focus · t tree/list · b sidebar · j/k scroll · n/p file · Space fold · v viewed
       c line comment · C comments · x export Markdown · ? help · q quit
 Mouse: click files, fold arrows, viewed boxes, and toolbar; scroll or drag rails.
 The worktree and index are untouched. In PR review, v syncs Viewed to GitHub.
@@ -218,6 +218,7 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		return termenv.NewOutput(stdout).HasDarkBackground()
 	})
 	model := tui.New(snapshot, source, color, resolvedTheme)
+	model.SetMouseEnabled(!noMouse)
 	defer model.Close()
 	programOptions := []tea.ProgramOption{tea.WithOutput(stdout), tea.WithAltScreen()}
 	if !noMouse {

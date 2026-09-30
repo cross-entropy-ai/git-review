@@ -6,11 +6,36 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+func TestEditorCompletionRestoresMouseSetting(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		for _, err := range []error{nil, errors.New("editor failed")} {
+			for _, msg := range []tea.Msg{editorFinishedMsg{err: err}, exportEditorFinishedMsg{path: "report.md", err: err}} {
+				m := sampleModel(false)
+				t.Cleanup(m.Close)
+				m.SetMouseEnabled(enabled)
+				m.dragging = "resize"
+				_, cmd := m.Update(msg)
+				want := tea.DisableMouse()
+				if enabled {
+					want = tea.EnableMouseCellMotion()
+				}
+				if cmd == nil || !reflect.DeepEqual(cmd(), want) {
+					t.Fatalf("%T, enabled=%v, err=%v: mouse setting not restored", msg, enabled, err)
+				}
+				if m.dragging != "" {
+					t.Fatal("editor return retained a stale drag")
+				}
+			}
+		}
+	}
+}
 
 func TestEditorSettingsAndLiteralFilePath(t *testing.T) {
 	for _, setting := range []string{"GIT_EDITOR", "core.editor", "VISUAL", "EDITOR"} {

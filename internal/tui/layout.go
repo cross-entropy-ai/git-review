@@ -21,7 +21,7 @@ type geometry struct {
 
 func (m *Model) layout() geometry {
 	g := geometry{bodyHeight: m.bodyHeight()}
-	if m.width >= 90 {
+	if m.width >= 90 && !m.sideHidden {
 		g.sideWidth = min(38, m.width/3)
 		if m.sideWidth > 0 {
 			g.sideWidth = m.clampSidebarWidth(m.sideWidth)
@@ -37,6 +37,28 @@ func (m *Model) clampSidebarWidth(width int) int {
 	return max(minSidebarWidth, min(width, m.width-minDiffWidth-3))
 }
 
+func (m *Model) toggleSidebar() {
+	m.sideHidden = !m.sideHidden
+	m.dragging = ""
+	if m.layout().sideWidth == 0 {
+		m.fileFocus = false
+	}
+	if m.wrapLines {
+		m.rebuildKeepingPosition()
+	}
+	if !m.sideHidden && m.width < 90 {
+		m.message = "Resize to at least 90 columns to show the sidebar"
+	}
+}
+
+func (m *Model) sidebarButton() control {
+	label := " b Hide "
+	if m.layout().sideWidth == 0 {
+		label = " b Files "
+	}
+	return control{x: 2, y: contentTop - 1, width: ansi.StringWidth(label), label: label, key: "b"}
+}
+
 type control struct {
 	x, y, width int
 	label, key  string
@@ -47,7 +69,7 @@ func (c control) contains(x, y int) bool {
 }
 
 func (m *Model) controls() []control {
-	var controls []control
+	controls := []control{m.sidebarButton()}
 	right := func(y int, buttons ...control) {
 		x := m.width - rightInset
 		for i := len(buttons) - 1; i >= 0; i-- {

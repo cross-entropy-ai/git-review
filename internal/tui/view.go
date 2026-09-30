@@ -65,6 +65,11 @@ func (m *Model) View() string {
 	if len(m.visible) > 0 {
 		diffTitle += "· " + safeText(c.Files[m.selected].Path) + " "
 	}
+	if g.sideWidth > 0 {
+		sideTitle = m.sidebarButton().label + "·" + sideTitle
+	} else {
+		diffTitle = m.sidebarButton().label + "·" + diffTitle
+	}
 	top := m.panelEdge(diffTitle, m.width-g.diffX, !m.fileFocus, true)
 	if g.sideWidth > 0 {
 		top = m.panelEdge(sideTitle, g.sideWidth, m.fileFocus, true) + m.surface(m.palette.foreground, " ", 1) + top
@@ -434,6 +439,7 @@ func (m *Model) helpLines() []string {
 		"", "  KEYBOARD",
 		"  Tab              Switch focus between files and diff",
 		"  t                Toggle flat file list / directory tree",
+		"  b                Hide / show the file sidebar",
 		"  s                Toggle inline / split diff (old left, new right)",
 		"  w                Toggle line wrapping",
 		"  j / k · ↑ / ↓    Scroll diff; at an edge, select adjacent file",
