@@ -4,6 +4,9 @@ import tea "github.com/charmbracelet/bubbletea"
 
 func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if msg.Action == tea.MouseActionRelease {
+		if m.dragging == "text" {
+			return m.finishTextSelection(msg)
+		}
 		m.dragging = ""
 		return nil
 	}
@@ -23,7 +26,9 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	g := m.layout()
 	if msg.Action == tea.MouseActionMotion {
 		if m.dragging != "" && msg.Button == tea.MouseButtonLeft {
-			if m.dragging == "resize" {
+			if m.dragging == "text" {
+				m.extendTextSelection(msg.X, msg.Y, true)
+			} else if m.dragging == "resize" {
 				m.sideWidth = m.clampSidebarWidth(msg.X)
 				if m.wrapLines {
 					m.rebuildKeepingPosition()
@@ -34,10 +39,16 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if msg.Action == tea.MouseActionPress && !tea.MouseEvent(msg).IsWheel() {
+		m.clearTextSelection()
+	}
 	if msg.X < 0 || msg.X >= m.width || msg.Y < 0 || msg.Y >= m.height {
 		return nil
 	}
 	if tea.MouseEvent(msg).IsWheel() {
+		if m.dragging == "text" {
+			return nil
+		}
 		delta := 3
 		if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelLeft {
 			delta = -3
@@ -157,6 +168,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 			if !m.lineSelecting {
 				m.selected, m.fileFocus = row.file, false
 				m.ensureSelectedVisible()
+				m.startTextSelection(msg.X, msg.Y)
 				return nil
 			}
 			side := ""

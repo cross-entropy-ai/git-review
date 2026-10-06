@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/x/ansi"
 	"github.com/rivo/uniseg"
 )
@@ -40,17 +38,7 @@ func (m *Model) wrapRows(rows []row) []row {
 				return nil
 			}
 			line := m.comparison.Files[r.file].Hunks[r.hunk].Lines[index]
-			// Match the minimum four-column line numbers used by the renderer,
-			// including unusually large source line numbers.
-			digits := func(n int) int { return max(4, len(fmt.Sprint(n))) }
-			gutter := digits(line.Old) + digits(line.New) + 6
-			if split {
-				number := line.Old
-				if newSide {
-					number = line.New
-				}
-				gutter = digits(number) + 5
-			}
+			gutter := codeGutterWidth(line, split, newSide)
 			return wrapSpans(safeText(line.Text), cellWidth-gutter)
 		}
 		leftWidth := width

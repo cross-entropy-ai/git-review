@@ -161,6 +161,10 @@ GitHub supplies fixed patch context, so PR targets do not support custom `--cont
 
 Prefer the mouse? Click a file to jump to it, click its checkbox to mark it viewed, and scroll either pane. Click `b Hide` above the sidebar to hide it and give the diff the full width; click `b Files` to show it again. Drag the divider marked `⋮` between the sidebar and diff to resize the sidebar; your chosen width is retained for the session, including after hiding it. In the tree, click a directory to expand or collapse it.
 
+Drag across code to select text and release to copy it automatically, without line numbers or diff markers. In split view, selection stays on the side where you started. Wrapped lines are copied as their original source lines, including tabs. Press `Esc` or click elsewhere to clear the selection; comment mode keeps its existing line-selection controls.
+
+Copying uses the local clipboard helper when available (`pbcopy`, `wl-copy`, `xclip`, or `xsel`), otherwise the terminal’s OSC 52 clipboard support. Over SSH it uses OSC 52 to reach your local clipboard; your terminal must allow clipboard writes.
+
 Press `f` for an embedded fzf-style file finder; no external `fzf` installation is needed. Type parts of a filename or path to narrow the list, including rename source paths. Use arrows, Tab/Shift+Tab, or Ctrl+N/P to select, Enter to open, and Esc to cancel. Choosing a file keeps the full review list intact.
 
 Press `/` to search added, removed, and context lines in all loaded diff hunks. Search is literal and case-insensitive, with live highlights and a match counter. Matches in folded files expand automatically; inline and split views are supported. Press Enter to confirm, then `n` / `p` to navigate matches with wraparound. Esc clears the search and restores `n` / `p` file navigation. While typing a query, `n` and `p` remain ordinary text. This searches the displayed comparison, not unchanged repository content outside its hunks. Press `?` for a scrollable help popup; Esc or `q` closes it and returns to the same review position.

@@ -80,6 +80,7 @@ func (m *Model) View() string {
 		content := m.surface(m.palette.foreground, "", g.diffWidth)
 		if m.offset+y < len(m.rows) {
 			content = m.renderRow(m.rows[m.offset+y], g.diffWidth)
+			content = m.highlightTextSelection(content, m.offset+y)
 		}
 		if len(m.rows) == 0 {
 			content = m.emptyRow(y, g.diffWidth)
@@ -432,6 +433,7 @@ func (m *Model) helpLines() []string {
 		"  Click [ ]        Toggle viewed without advancing",
 		"  Click diff title Fold / unfold; click Viewed to mark",
 		"  Click code       Focus file; select a line in comment mode",
+		"  Drag code        Select text; release to copy; Esc clears",
 		"  Wheel            Scroll the pane under the pointer",
 		"  Shift + wheel    Scroll code horizontally",
 		"  Drag scrollbar   Jump through files or diff",

@@ -219,8 +219,10 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 	})
 	model := tui.New(snapshot, source, color, resolvedTheme)
 	model.SetMouseEnabled(!noMouse)
+	terminal := &terminalOutput{Writer: stdout}
+	model.SetClipboard(terminal.copySelection)
 	defer model.Close()
-	programOptions := []tea.ProgramOption{tea.WithOutput(stdout), tea.WithAltScreen()}
+	programOptions := []tea.ProgramOption{tea.WithOutput(terminal), tea.WithAltScreen()}
 	if !noMouse {
 		programOptions = append(programOptions, tea.WithMouseCellMotion())
 	}

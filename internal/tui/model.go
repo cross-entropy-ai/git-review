@@ -93,6 +93,9 @@ type Model struct {
 	loading      bool
 	message      string
 
+	textSelection *textSelection
+	copyText      func(string) error
+
 	modePicking      bool
 	modeTargets      []backend.Target
 	targetsLoading   bool
@@ -162,6 +165,7 @@ func (m *Model) Init() tea.Cmd { return nil }
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.clearTextSelection()
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
 		if m.layout().sideWidth == 0 {
 			m.fileFocus = false
@@ -215,9 +219,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.message = "Viewed state saved for " + safeText(msg.path)
 		}
+	case clipboardMsg:
+		if msg.err != nil {
+			m.message = "Copy failed: " + safeText(msg.err.Error())
+		} else {
+			m.message = "Selection sent to clipboard"
+		}
 	case tea.MouseMsg:
 		return m, m.mouse(msg)
 	case tea.KeyMsg:
+		if m.textSelection != nil {
+			m.clearTextSelection()
+			m.message = ""
+		}
 		// Terminals can deliver several ordinary keystrokes in one read.
 		// Preserve their order so a leading 'f' or '/' starts text input immediately.
 		if msg.Type == tea.KeyRunes && !msg.Paste && len(msg.Runes) > 1 {
@@ -482,6 +496,7 @@ func (m *Model) viewedBox(path string) string {
 func (m *Model) bodyHeight() int { return max(1, m.height-7) }
 
 func (m *Model) rebuild() {
+	m.clearTextSelection()
 	m.visible, m.treeEntries = fileOrder(m.comparison.Files, m.treeMode)
 	m.rows = nil
 	if !slices.Contains(m.visible, m.selected) && len(m.visible) > 0 {
