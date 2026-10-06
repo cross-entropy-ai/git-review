@@ -43,6 +43,9 @@ func TestTreeOrderAndTogglePreserveReview(t *testing.T) {
 	m.jumpSelected()
 	rows, offset := append([]row(nil), m.rows...), m.offset
 	press(m, "t")
+	if m.rows[m.offset] != rows[offset] {
+		t.Fatal("tree toggle changed the source row at the top of the diff")
+	}
 	var got []string
 	for _, entry := range m.treeRows {
 		got = append(got, entry.path)
@@ -50,6 +53,15 @@ func TestTreeOrderAndTogglePreserveReview(t *testing.T) {
 	want := []string{"docs/", "docs/中文.md", "src/", "src/a/", "src/a/main.go", "src/z.go", "a.go", "docs", "z.go"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("tree order: %v", got)
+	}
+	var diffOrder []string
+	for _, r := range m.rows {
+		if r.kind == 'f' {
+			diffOrder = append(diffOrder, m.comparison.Files[r.file].Path)
+		}
+	}
+	if want := []string{"docs/中文.md", "src/a/main.go", "src/z.go", "a.go", "docs", "z.go"}; !reflect.DeepEqual(diffOrder, want) {
+		t.Fatalf("diff order does not follow the tree: %v", diffOrder)
 	}
 	if m.treeRows[treeIndex(t, m, "src/")].count != 2 {
 		t.Fatal("directory count does not include nested files")
@@ -92,10 +104,95 @@ func TestTreeDirectoryKeyboardAndReveal(t *testing.T) {
 	if !m.treeClosed["src/"] {
 		t.Fatal("left did not close the ancestor")
 	}
-	press(m, "p")
+	press(m, "n")
 	if m.selected != 1 || m.treeClosed["src/"] || m.treeRows[m.treeCursor].file != 1 {
 		t.Fatal("file navigation did not reveal the selected file")
 	}
+}
+
+func TestTreeDiffOrderAcrossLayoutsAndDirectoryFolding(t *testing.T) {
+	for _, split := range []bool{false, true} {
+		for _, wrap := range []bool{false, true} {
+			t.Run(fmt.Sprintf("split=%v/wrap=%v", split, wrap), func(t *testing.T) {
+				m := treeModel("z.go", "src/z.go", "docs/中文.md", "src/a/main.go", "a.go")
+				t.Cleanup(m.Close)
+				m.splitMode, m.wrapLines = split, wrap
+				press(m, "t")
+				checkOrder := func() {
+					t.Helper()
+					var headers []int
+					for _, r := range m.rows {
+						if r.kind == 'f' {
+							headers = append(headers, r.file)
+						}
+					}
+					want := []int{2, 3, 1, 4, 0}
+					if !reflect.DeepEqual(headers, want) || !reflect.DeepEqual(m.visible, want) {
+						t.Fatalf("headers=%v navigation=%v, want %v", headers, m.visible, want)
+					}
+				}
+				checkOrder()
+				press(m, "f")
+				if !reflect.DeepEqual(m.fileMatches, m.visible) {
+					t.Fatal("file picker does not follow display order")
+				}
+				press(m, "esc")
+				rows := append([]row(nil), m.rows...)
+				m.toggleDirectory(treeIndex(t, m, "src/"))
+				if !reflect.DeepEqual(m.rows, rows) {
+					t.Fatal("closing a directory changed the diff")
+				}
+				checkOrder()
+				press(m, "z")
+				checkOrder()
+				m.Update(loadedMsg{snapshot: m.snapshot})
+				checkOrder()
+				if m.selected != 2 || m.rows[m.offset].file != 2 {
+					t.Fatal("refresh did not select the first displayed file")
+				}
+			})
+		}
+	}
+}
+
+func TestTreeDiffNavigationFollowsDisplayOrder(t *testing.T) {
+	m := treeModel("z.go", "docs/a.go", "src/nested/b.go", "src/a.go")
+	t.Cleanup(m.Close)
+	press(m, "t")
+	m.selected = 1
+	m.jumpSelected()
+	press(m, "n")
+	if m.selected != 2 {
+		t.Fatal("next file did not follow tree order")
+	}
+	press(m, "v")
+	if m.selected != 3 || !m.viewed["src/nested/b.go"] {
+		t.Fatal("marking viewed did not advance in tree order")
+	}
+	press(m, "n")
+	if m.selected != 0 {
+		t.Fatal("next file did not reach the root file after directories")
+	}
+	press(m, "p")
+	if m.selected != 3 {
+		t.Fatal("previous file did not follow tree order")
+	}
+	// Cross the final file boundary, where backend indices run backwards.
+	for i, r := range m.rows {
+		if r.kind == 'f' && r.file == 0 {
+			m.offset = i - 1
+			m.scroll(1)
+			if m.selected != 0 {
+				t.Fatal("scrolling down did not select the next displayed file")
+			}
+			m.scroll(-1)
+			if m.selected != 3 {
+				t.Fatal("scrolling up did not select the previous displayed file")
+			}
+			return
+		}
+	}
+	t.Fatal("root file header missing")
 }
 
 func TestTreeMouseCheckboxAndPicker(t *testing.T) {

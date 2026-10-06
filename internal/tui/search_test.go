@@ -189,3 +189,37 @@ func TestRefreshRevealsActiveSearchMatch(t *testing.T) {
 		t.Fatal("refresh left the active match counter disconnected from the visible diff")
 	}
 }
+
+func TestTreeSearchFollowsDisplayOrderAndPreservesActiveMatch(t *testing.T) {
+	m := treeModel("z.go", "docs/a.go", "src/b.go")
+	t.Cleanup(m.Close)
+	for i := range m.comparison.Files {
+		m.comparison.Files[i].Hunks = []gitdiff.Hunk{{Lines: []gitdiff.Line{
+			{Kind: '+', Text: "needle", New: 1},
+		}}}
+	}
+	m.rebuild()
+	press(m, "t")
+	m.selected = 2
+	m.jumpSelected()
+	press(m, "/needle")
+	press(m, "enter")
+	if m.selected != 2 || m.matchIndex != 1 {
+		t.Fatalf("search did not start at selected file: selected=%d match=%d", m.selected, m.matchIndex)
+	}
+	for _, want := range []int{0, 1, 2} {
+		press(m, "n")
+		if m.selected != want {
+			t.Fatalf("next match selected=%d, want %d", m.selected, want)
+		}
+	}
+	active := m.matches[m.matchIndex]
+	press(m, "t")
+	if m.matches[m.matchIndex] != active || m.matchIndex != 2 {
+		t.Fatal("switching to list order changed the active match")
+	}
+	press(m, "p")
+	if m.selected != 1 {
+		t.Fatal("search did not return to list order")
+	}
+}

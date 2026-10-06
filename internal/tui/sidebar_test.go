@@ -23,7 +23,9 @@ func TestSidebarHideShow(t *testing.T) {
 				if split {
 					press(m, "s")
 				}
-				press(m, "n")
+				// Leave room to scroll regardless of the active file ordering.
+				m.selected = m.visible[1]
+				m.jumpSelected()
 				press(m, "tab")
 				selected, offset := m.selected, m.offset
 				clickText(t, m, "b Hide")

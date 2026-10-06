@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -93,7 +94,8 @@ func (m *Model) updateSearch(jump bool) {
 	if m.search == "" {
 		return
 	}
-	for fi, file := range m.comparison.Files {
+	for _, fi := range m.visible {
+		file := m.comparison.Files[fi]
 		for hi, hunk := range file.Hunks {
 			for li, line := range hunk.Lines {
 				if line.Kind != ' ' && line.Kind != '+' && line.Kind != '-' {
@@ -111,8 +113,9 @@ func (m *Model) updateSearch(jump bool) {
 	m.matchIndex = 0
 	if jump {
 		a := m.searchAnchor
+		anchorPosition := slices.Index(m.visible, a.file)
 		for i, match := range m.matches {
-			if match.file > a.file || (match.file == a.file && (match.hunk > a.hunk || (match.hunk == a.hunk && match.line >= a.line))) {
+			if slices.Index(m.visible, match.file) > anchorPosition || (match.file == a.file && (match.hunk > a.hunk || (match.hunk == a.hunk && match.line >= a.line))) {
 				m.matchIndex = i
 				break
 			}

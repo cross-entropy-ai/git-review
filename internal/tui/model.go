@@ -3,6 +3,7 @@ package tui
 
 import (
 	"context"
+	"slices"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cross-entropy-ai/git-review/internal/backend"
@@ -67,6 +68,7 @@ type Model struct {
 	treeMode     bool
 	splitMode    bool
 	wrapLines    bool
+	treeEntries  []treeEntry // Complete tree in shared file order, before directory folding.
 	treeRows     []treeEntry
 	treeCursor   int
 	treeClosed   map[string]bool
@@ -146,6 +148,10 @@ func (m *Model) install(s *backend.Snapshot) {
 		m.showAlert("Review warning", s.Warning)
 	}
 	m.rebuild()
+	if len(m.visible) > 0 {
+		m.selected = m.visible[0]
+		m.jumpSelected()
+	}
 	m.updateFileMatches()
 	m.searchAnchor = row{file: m.selected}
 	m.updateSearch(m.search != "")
@@ -295,8 +301,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "t":
 			m.treeMode = !m.treeMode
 			m.sideOffset, m.dragging = 0, ""
-			m.rebuildTree()
-			m.ensureSelectedVisible()
+			m.rebuildKeepingPosition()
+			var active searchMatch
+			hasMatch := m.matchIndex >= 0 && m.matchIndex < len(m.matches)
+			if hasMatch {
+				active = m.matches[m.matchIndex]
+			}
+			m.updateSearch(false)
+			if hasMatch {
+				m.matchIndex = slices.Index(m.matches, active)
+			}
 			if m.layout().sideWidth == 0 {
 				m.message = "Sidebar view changed; press b to show it at 90 columns or wider"
 			}
@@ -468,12 +482,14 @@ func (m *Model) viewedBox(path string) string {
 func (m *Model) bodyHeight() int { return max(1, m.height-7) }
 
 func (m *Model) rebuild() {
-	m.visible = nil
+	m.visible, m.treeEntries = fileOrder(m.comparison.Files, m.treeMode)
 	m.rows = nil
-	found := false
-	for i, file := range m.comparison.Files {
-		m.visible = append(m.visible, i)
-		found = found || i == m.selected
+	if !slices.Contains(m.visible, m.selected) && len(m.visible) > 0 {
+		m.selected = m.visible[0]
+	}
+	m.rebuildTree()
+	for _, i := range m.visible {
+		file := m.comparison.Files[i]
 		m.rows = append(m.rows, row{kind: 'f', file: i})
 		if !m.collapsed[file.Path] {
 			for _, metadata := range file.Metadata {
@@ -495,13 +511,9 @@ func (m *Model) rebuild() {
 		}
 		m.rows = append(m.rows, row{kind: 's', file: i})
 	}
-	if !found && len(m.visible) > 0 {
-		m.selected = m.visible[0]
-	}
 	if m.wrapLines {
 		m.rows = m.wrapRows(m.rows)
 	}
-	m.rebuildTree()
 	if m.lineSelecting {
 		for i := range m.rows {
 			if ref, ok := m.lineAt(i, m.commentLine.side); ok && ref == m.commentLine {
@@ -534,7 +546,8 @@ func (m *Model) scroll(delta int) {
 		// A file selected by clicking can be below the viewport's first row.
 		// Scrolling down must not move that selection back to an earlier file.
 		candidate := m.rows[m.offset].file
-		if (delta > 0 && candidate > m.selected) || (delta < 0 && candidate < m.selected) {
+		candidatePosition, selectedPosition := slices.Index(m.visible, candidate), slices.Index(m.visible, m.selected)
+		if (delta > 0 && candidatePosition > selectedPosition) || (delta < 0 && candidatePosition < selectedPosition) {
 			m.selected = candidate
 			m.ensureSelectedVisible()
 		}

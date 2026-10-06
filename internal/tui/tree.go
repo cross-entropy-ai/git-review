@@ -3,74 +3,25 @@ package tui
 import (
 	"fmt"
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
 )
 
-type treeEntry struct {
-	path  string
-	name  string
-	file  int // A negative index denotes a directory.
-	depth int
-	count int
-}
-
-type treeNode struct {
-	entry    treeEntry
-	children map[string]*treeNode
-}
-
-// Build from diff paths, including deleted files and rename destinations.
-// Directory expansion is independent of diff folding and viewed progress.
+// Apply directory visibility to the shared tree without changing file order.
 func (m *Model) rebuildTree() {
 	m.treeRows = nil
-	if !m.treeMode {
-		return
-	}
-	root := &treeNode{children: make(map[string]*treeNode)}
-	for _, index := range m.visible {
-		file := m.comparison.Files[index]
-		parts := strings.Split(file.Path, "/")
-		node := root
-		for depth, name := range parts[:len(parts)-1] {
-			key := "dir:" + name
-			child := node.children[key]
-			if child == nil {
-				child = &treeNode{
-					entry:    treeEntry{path: strings.Join(parts[:depth+1], "/") + "/", name: name, file: -1, depth: depth},
-					children: make(map[string]*treeNode),
-				}
-				node.children[key] = child
-			}
-			child.entry.count++
-			node = child
+	hiddenDepth := -1
+	for _, entry := range m.treeEntries {
+		if hiddenDepth >= 0 && entry.depth > hiddenDepth {
+			continue
 		}
-		name := parts[len(parts)-1]
-		node.children["file:"+name] = &treeNode{entry: treeEntry{path: file.Path, name: name, file: index, depth: len(parts) - 1}}
-	}
-	var flatten func(*treeNode)
-	flatten = func(node *treeNode) {
-		children := make([]*treeNode, 0, len(node.children))
-		for _, child := range node.children {
-			children = append(children, child)
-		}
-		sort.Slice(children, func(i, j int) bool {
-			a, b := children[i].entry, children[j].entry
-			if (a.file < 0) != (b.file < 0) {
-				return a.file < 0
-			}
-			return a.name < b.name
-		})
-		for _, child := range children {
-			m.treeRows = append(m.treeRows, child.entry)
-			if !m.treeClosed[child.entry.path] {
-				flatten(child)
-			}
+		hiddenDepth = -1
+		m.treeRows = append(m.treeRows, entry)
+		if entry.file < 0 && m.treeClosed[entry.path] {
+			hiddenDepth = entry.depth
 		}
 	}
-	flatten(root)
 	m.treeCursor = min(m.treeCursor, max(0, len(m.treeRows)-1))
 	m.clampSidebar()
 }

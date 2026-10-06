@@ -24,7 +24,7 @@ func (m *Model) openPicker() {
 
 // Fzf-style subsequence matching: each space-separated term must match.
 // Prefer contiguous matches, path boundaries, and short paths; ties preserve
-// comparison order. This picker does not require an external fzf executable.
+// display order. This picker does not require an external fzf executable.
 func fuzzyScore(path, query string) (int, bool) {
 	path = strings.ToLower(path)
 	score := len([]rune(path))
@@ -65,7 +65,8 @@ func (m *Model) updateFileMatches() {
 	}
 	type candidate struct{ file, score int }
 	var candidates []candidate
-	for i, file := range m.comparison.Files {
+	for _, i := range m.visible {
+		file := m.comparison.Files[i]
 		score, ok := fuzzyScore(file.Path, m.fileQuery)
 		if file.OldPath != "" {
 			if oldScore, oldOK := fuzzyScore(file.OldPath, m.fileQuery); oldOK && (!ok || oldScore < score) {
